@@ -1,0 +1,49 @@
+{
+  "name": "atlas-international-studies",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 0.0.0.0",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "postinstall": "node scripts/setup-pdf-worker.mjs",
+    "test:browser": "node tests/browser/browser-smoke.mjs",
+    "test:ux": "node tests/browser/ux-audit.mjs",
+    "manual:pdf": "node scripts/create-user-manual.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
+    "citation-js": "^0.7.18",
+    "d3-geo": "^3.1.1",
+    "dompurify": "^3.4.17",
+    "entities": "^9.0.0",
+    "fast-xml-parser": "^5.12.0",
+    "jszip": "^3.10.2",
+    "lucide-react": "^0.468.0",
+    "mammoth": "^1.13.0",
+    "msedge-tts": "^2.1.1",
+    "next": "^16.0.0",
+    "pdfjs-dist": "^6.5.438",
+    "pptxgenjs": "^4.0.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2",
+    "world-countries": "^5.1.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@electric-sql/pglite": "^0.5.16",
+    "@types/d3-geo": "^3.1.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/topojson-client": "^3.1.0",
+    "fake-indexeddb": "^6.2.8",
+    "jsdom": "^31.0.0",
+    "playwright-core": "^1.65.0",
+    "typescript": "^5.7.0"
+  }
+}

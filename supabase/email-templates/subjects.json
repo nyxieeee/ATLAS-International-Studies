@@ -1,0 +1,42 @@
+[
+  {
+    "file": "confirm-signup.html",
+    "supabaseTemplate": "Confirm sign up",
+    "subject": "Confirm your ATLAS account"
+  },
+  {
+    "file": "reset-password.html",
+    "supabaseTemplate": "Reset password",
+    "subject": "Reset your ATLAS password"
+  },
+  {
+    "file": "magic-link.html",
+    "supabaseTemplate": "Magic link",
+    "subject": "Your secure ATLAS sign-in link"
+  },
+  {
+    "file": "invite-user.html",
+    "supabaseTemplate": "Invite user",
+    "subject": "You are invited to ATLAS"
+  },
+  {
+    "file": "change-email.html",
+    "supabaseTemplate": "Change email address",
+    "subject": "Confirm your new ATLAS email address"
+  },
+  {
+    "file": "reauthentication.html",
+    "supabaseTemplate": "Reauthentication",
+    "subject": "Your ATLAS verification code"
+  },
+  {
+    "file": "password-changed.html",
+    "supabaseTemplate": "Password changed",
+    "subject": "Your ATLAS password was changed"
+  },
+  {
+    "file": "email-changed.html",
+    "supabaseTemplate": "Email address changed",
+    "subject": "Your ATLAS email address was changed"
+  }
+]

@@ -1,0 +1,8 @@
+﻿import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {materialChunks,buildMaterialContext} from '../lib/study-materials.mjs';
+import {validateAiBody} from '../lib/ai-core.mjs';
+test('study retrieval finds relevant passages beyond the start of a long file',()=>{const m={id:'1',name:'Lecture.pdf',text:'Historical introduction. '.repeat(1500)+'\nA confidence-building maritime hotline can reduce accidental escalation.\n'+'Appendix data. '.repeat(500)};const result=buildMaterialContext([m],'maritime hotline escalation',3000);assert.match(result.text,/maritime hotline/);assert.equal(result.partial,true);assert.ok(result.text.length<=3000)});
+test('context represents each selected file and labels excerpts',()=>{const r=buildMaterialContext([{id:'a',name:'Treaty.pdf',text:'A treaty creates legal obligations.'},{id:'b',name:'Lecture.pptx',text:'Institutions can facilitate cooperation.'}],'cooperation',3000);assert.match(r.text,/\[D1: Treaty.pdf/);assert.match(r.text,/\[D2: Lecture.pptx/);assert.equal(r.partial,false)});
+test('chunking preserves the document ending and guarantees progress on unbroken text',()=>{const text='x'.repeat(20000)+'FINAL';const chunks=materialChunks(text);assert.ok(chunks.length>1);assert.match(chunks.at(-1).text,/FINAL$/);assert.ok(chunks.every(c=>c.end>c.start&&c.text.length<=1000))});
+test('source-only requests require correctly typed material context',()=>{const base={task:'recitation',sourceOnly:true,messages:[{role:'user',content:'Begin'}]};assert.ok(validateAiBody(base));assert.ok(validateAiBody({...base,context:123}));assert.ok(validateAiBody({...base,context:' '}));assert.equal(validateAiBody({...base,context:'[D1] A supplied reading excerpt.'}),null)});
