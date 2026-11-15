@@ -1,3 +1,4 @@
+import {prepareBrowserAccount} from './account-session.mjs';
 import {chromium} from 'playwright-core';
 import assert from 'node:assert/strict';
 import {mkdir,readFile} from 'node:fs/promises';
@@ -13,6 +14,7 @@ await page.route('**/api/live-map*',route=>route.fulfill({json:{items:Array.from
 await page.route('https://ichef.bbci.co.uk/atlas-smoke.jpg',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="#c7d7e7"/></svg>'}));
 await page.route('https://ichef.bbci.co.uk/atlas-broken.jpg',route=>route.fulfill({status:404,body:''}));
 await mkdir('artifacts/ui-smoke',{recursive:true});
+await prepareBrowserAccount(page.context(),process.env.ATLAS_TEST_URL||'http://localhost:3016');
 try{
  await page.goto(base+'/#explore?view=indicators');await page.getByRole('heading',{name:'Published country statistics'}).waitFor();
  const select=page.getByRole('combobox',{name:'Data layer',exact:true});await select.click();await page.getByRole('listbox',{name:'Data layer',exact:true}).waitFor();await page.screenshot({path:'artifacts/ui-smoke/dropdown-desktop.png',animations:'disabled'});await page.getByRole('option',{name:'GDP (current US$)',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#country-data-layer')?.value==='gdp');

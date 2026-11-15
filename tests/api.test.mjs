@@ -1,6 +1,7 @@
 ﻿import {test} from 'node:test';
 import assert from 'node:assert/strict';
-const base=process.env.ATLAS_TEST_URL;
+// These business-endpoint checks require a real disposable signed-in session.
+import {authenticatedBase as base,authFetch as fetch} from './helpers/live-account.mjs';
 for(const [path,status] of [['/api/research?q=a',400],['/api/research?q=security&from=2025&to=2020',400],['/api/research?q=security&page=-1',400],['/api/countries?iso=XX',400],['/api/intelligence?indicator=relationships',400],['/api/intelligence?indicator=__proto__',400],['/api/verify?doi=https://example.com',400]]){
  test('validates '+path,{skip:!base},async()=>{const response=await fetch(base+path);assert.equal(response.status,status);});
 }

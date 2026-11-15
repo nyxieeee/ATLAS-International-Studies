@@ -1,8 +1,10 @@
+import {prepareBrowserAccount} from './account-session.mjs';
 import {chromium} from 'playwright-core';
 import {readFile,mkdir} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 const browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));let request;
+await prepareBrowserAccount(page.context(),process.env.ATLAS_TEST_URL||'http://localhost:3016');
 try{
  await page.route('**/api/ai',route=>{if(route.request().method()!=='POST')return route.fulfill({json:{configured:true}});request=route.request().postDataJSON();return route.fulfill({json:{text:'## Diplomacy and cooperation\n- States use dialogue to settle differences. [D1]\n- Institutions support cooperation. [D1]\n## References\n- [D1] diplomacy.txt',provider:'AI'}})});
  await page.goto((process.env.ATLAS_TEST_URL||'http://localhost:3016')+'/#practice?task=reviewer');

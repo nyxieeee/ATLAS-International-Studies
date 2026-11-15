@@ -1,3 +1,4 @@
+import {prepareBrowserAccount} from './account-session.mjs';
 import {chromium} from 'playwright-core';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
@@ -5,6 +6,7 @@ const base=process.env.ATLAS_TEST_URL||'http://localhost:3016';
 const browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));let fail=false;const queries=[];
 // Isolated UI fixtures. Production research always fetches sources.
 await page.route('**/api/relations?*',route=>{if(fail)return route.fulfill({status:502,json:{error:'Source research is temporarily unavailable.'}});const params=new URL(route.request().url()).searchParams;queries.push(params);if(params.get('target')==='CN')return route.fulfill({json:{country:{iso:'PH',name:'Philippines'},targetIso:'CN',dimension:params.get('dimension'),fetchedAt:'2026-11-14T00:00:00Z',sourcesChecked:1,warnings:[],sourceCandidates:[{title:'Additional original source',url:'https://www.un.org/blocked-source-fixture',snippet:'A browser-only source record.',fetchedAt:'2026-11-14T00:00:00Z',readable:false}],relations:[{iso:'CN',status:'tension',summary:'Browser-only targeted China assessment.',treaty:null,evidence:[{title:'Bilateral source fixture',url:'https://www.un.org/bilateral-fixture',quote:'The Philippines and China reported disagreements in this browser fixture.',publishedAt:null,fetchedAt:'2026-11-14T00:00:00Z'}]}]}});return route.fulfill({json:{country:{iso:params.get('iso'),name:'Philippines'},dimension:params.get('dimension'),fetchedAt:'2026-11-14T00:00:00Z',sourcesChecked:1,warnings:[],relations:[{iso:'US',status:'cooperation',summary:'Browser-only fixture of bilateral cooperation.',treaty:'Mutual Defense Treaty',evidence:[{title:'Browser fixture source',url:'https://www.un.org/example-relations-fixture',quote:'The Philippines and the United States discussed cooperation under the Mutual Defense Treaty.',publishedAt:'2026-11-13T00:00:00Z',fetchedAt:'2026-11-14T00:00:00Z'}]}]}})});
+await prepareBrowserAccount(page.context(),process.env.ATLAS_TEST_URL||'http://localhost:3016');
 try{
  await page.goto(base+'/#explore?view=relations');await page.getByRole('heading',{name:'Philippines and the world'}).waitFor();
  await page.getByRole('button',{name:'United States: Cooperation reported',exact:true}).click();await page.getByText('Browser-only fixture of bilateral cooperation.',{exact:true}).waitFor();

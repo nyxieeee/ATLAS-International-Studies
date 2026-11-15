@@ -1,3 +1,4 @@
+import {withAccount} from '@/lib/account-access.mjs';
 import {AiServiceError} from '@/lib/ai-provider.mjs';
 import {NextRequest,NextResponse} from 'next/server';
 import countryCodes from 'world-countries';
@@ -6,7 +7,7 @@ import {researchRelations} from '@/lib/relations.mjs';
 export const runtime='nodejs';export const maxDuration=120;
 const countries=countryCodes.map(c=>({iso:c.cca2,name:c.name.common,aliases:[c.name.official,...c.altSpellings]}));
 const cache=new Map<string,{expires:number;data:any}>();const pending=new Map<string,Promise<any>>();let active=0;
-export async function GET(req:NextRequest){
+async function handleGET(req:NextRequest){
  const iso=req.nextUrl.searchParams.get('iso'),dimension=req.nextUrl.searchParams.get('dimension')||'diplomacy';const country=countries.find(c=>c.iso===iso);const targetIso=req.nextUrl.searchParams.get('target')||'';const target=countries.find(c=>c.iso===targetIso);
  if((targetIso&&(!target||targetIso===iso))||!country||!Object.hasOwn(RELATION_DIMENSIONS,dimension))return NextResponse.json({error:'Choose a listed country and relationship dimension.'},{status:400});
  if(!process.env.GROQ_API_KEY)return NextResponse.json({error:'Relationship research is currently unavailable. Configure the AI service to fetch cited evidence.'},{status:503});
@@ -18,3 +19,5 @@ export async function GET(req:NextRequest){
  }
  try{return NextResponse.json(await pending.get(key),{headers:{'Cache-Control':'no-store'}})}catch(e){if(e instanceof AiServiceError)return NextResponse.json({error:e.message},{status:e.status});return NextResponse.json({error:'Relationship sources could not be researched. Retry later; no scores or relationships were invented.'},{status:502})}
 }
+
+export const GET=withAccount(handleGET);

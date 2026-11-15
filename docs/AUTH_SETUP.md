@@ -1,6 +1,6 @@
 # ATLAS account setup
 
-The account screens use the existing Supabase browser client and account-specific workspace synchronization. They do not create a separate user database or replace guest storage. Guest work is imported only through the existing explicit Settings action.
+ATLAS requires a verified Supabase account before opening the workspace. The browser uses @supabase/ssr cookie sessions, and the server verifies the user with Auth. Existing device-only work is preserved and can be imported after signing in.
 
 ## Routes
 
@@ -13,7 +13,7 @@ The account screens use the existing Supabase browser client and account-specifi
 - `/auth/error`: expired, cancelled or invalid link guidance.
 - Unmatched URL paths render the custom ATLAS 404 with workspace and sign-in links.
 
-Settings links to these screens instead of maintaining a second inline login form. Guest workspace access remains available; these pages are not an application-wide access gate.
+Settings links to these screens instead of maintaining a second inline login form. The workspace is protected by a server redirect and a client session guard. Signing out unmounts the workspace and returns to login.
 
 ## Connect your Supabase project
 
@@ -39,7 +39,7 @@ The browser client uses PKCE with URL session detection. Supabase handles the co
 - Account A/B workspace and original-file isolation, guest import, sign-out and multi-device conflict behavior.
 - Production domain redirect allowlist and email delivery.
 
-Authentication does not resolve the separately observed search quota limits, publisher HTTP 403 responses or neural speech stream failures. AI routes remain accessible to the guest workspace; a public deployment needs an explicit server-side access/usage policy and abuse controls appropriate to the intended audience. The app is not declared production complete merely by adding login screens.
+Authentication does not resolve the separately observed search quota limits, publisher HTTP 403 responses or neural speech stream failures. Every app API handler requires a server-verified account, including AI, OCR, search, maps, citations, practice and speech. API responses are private/no-store, and refreshed cookies are carried to the browser. The app is not declared production complete merely by adding login screens.
 
 ## Motion
 
@@ -56,3 +56,9 @@ Validation uses mocked SDK operations for redirect, signup, password and error h
 ## Branded email templates
 
 Ready-to-paste Supabase emails are in `supabase/email-templates/`, with subject mappings in `subjects.json` and a local `preview.html`. Setup and supported flows are documented in [SUPABASE_SETUP.md](SUPABASE_SETUP.md). Action links retain Supabase’s `{{ .ConfirmationURL }}` placeholder.
+
+## Required-login deployment
+
+Deploy the updated code and keep NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY configured in the hosting environment. There is no guest bypass, including when configuration is missing. Login, signup, Google callback, recovery and email-logo assets remain public. Previous localStorage-only sessions may require one new sign-in after the cookie-session migration; account workspace data and earlier device backups are not deleted.
+
+API business integration tests and workspace browser audits now require ATLAS_TEST_AUTH_COOKIE from a disposable signed-in test account. Do not use a personal account for seeded audits. Browser test helpers intercept workspace/file writes for isolated UI fixtures. Boundary tests always verify that anonymous access is rejected.

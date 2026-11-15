@@ -612,3 +612,4 @@ main .rich-toolbar :is(button, select) { min-height: var(--compact-height); font
 .profile-photo-row h3 { margin:0 0 var(--space-2); font-size:var(--font-body); }
 .profile-photo-row .toolbar { margin-block:var(--space-3); }
 .profile-photo-settings > .data-loading-status { margin-top:var(--space-4); }
+.workspace-loading.account-check { inset:0; }

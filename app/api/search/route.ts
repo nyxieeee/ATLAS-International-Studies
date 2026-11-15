@@ -1,9 +1,10 @@
+import {withAccount} from '@/lib/account-access.mjs';
 import {NextRequest,NextResponse} from 'next/server';
 import {APPROVED_SOURCES,SOURCE_POLICY_VERSION,validateSearch,rankAndFilter} from '@/lib/search-policy.mjs';
 import {discoverSources} from '@/lib/direct-search.mjs';
 export const runtime='nodejs';export const maxDuration=120;
 const cache=new Map<string,{expires:number;results:any[];statuses:any[];notice:string;searchEntryPoint?:string}>();let active=0;
-export async function GET(req:NextRequest){
+async function handleGET(req:NextRequest){
  const p=req.nextUrl.searchParams;if(p.get('directory')==='true')return NextResponse.json({sources:APPROVED_SOURCES,policyVersion:SOURCE_POLICY_VERSION,webConfigured:!!process.env.GROQ_API_KEY,webMode:process.env.GROQ_API_KEY?'groq-browser-search':'direct-catalogs',aiConfigured:!!process.env.GROQ_API_KEY});
  const invalid=validateSearch(p);if(invalid)return NextResponse.json({error:invalid},{status:400});
  const query=p.get('q')!.trim(),category=p.get('category')||'all',source=p.get('source')||'all',from=p.get('from')||'',to=p.get('to')||'',sort=p.get('sort')||'relevance',page=Number(p.get('page')||1);
@@ -14,3 +15,5 @@ export async function GET(req:NextRequest){
  }
  return NextResponse.json({data:snapshot.results.slice((page-1)*10,page*10),meta:{returnedTotal:snapshot.results.length,page,hasNext:page*10<snapshot.results.length,policyVersion:SOURCE_POLICY_VERSION,providers:snapshot.statuses,notice:snapshot.notice,searchEntryPoint:snapshot.searchEntryPoint,coverage:'Retrieved approved sources, not an exhaustive count of the web.',searchedAt:new Date().toISOString()}},{headers:{'Cache-Control':'no-store'}});
 }
+
+export const GET=withAccount(handleGET);

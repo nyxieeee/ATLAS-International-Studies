@@ -1,4 +1,5 @@
 'use client';
+import RequireAccount from '@/components/RequireAccount';
 import AccountAvatar from '@/components/AccountAvatar';
 import LoadingStatus from '@/components/LoadingStatus';
 import {useCallback,useEffect,useRef,useState,type SetStateAction} from 'react';
@@ -23,7 +24,8 @@ import {discoveryLabel} from '@/lib/ui-labels.mjs';
 const navigation=[['home','Home',Home],['explore','Explore',Globe2],['research','Search',Search],['library','Library',Library],['projects','Projects',Layers],['practice','Practice',Sparkles],['chat','AI Chat',MessageSquare]] as const;
 function download(name:string,text:string){const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 function safeUrl(value:string){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:undefined}catch{return undefined}}
-export default function App(){
+export default function App(){return <RequireAccount><WorkspaceApp/></RequireAccount>}
+function WorkspaceApp(){
  const [workspace,setWorkspace]=useState<Workspace>(emptyWorkspace),[route,setRoute]=useState(()=>resolveRoute('home')),[navigationEpoch,setNavigationEpoch]=useState(0),[mobile,setMobile]=useState(false),[ready,setReady]=useState(false),[epoch,setEpoch]=useState(0),[syncStatus,setSyncStatus]=useState('Loading workspace...'),[query,setQuery]=useState(''),[searchSeed,setSearchSeed]=useState(''),[notice,setNotice]=useState(''),[detail,setDetail]=useState<SavedReference|null>(null),[launch,setLaunch]=useState<{ids:string[];activity:string;nonce:number;action?:string}>({ids:[],activity:'study',nonce:0});
  const page=route.page,dialog=useRef<HTMLElement>(null);
  const loadWorkspace=useCallback((value:Workspace)=>{setWorkspace(value);setEpoch(n=>n+1);setReady(true);setDetail(null);setLaunch({ids:[],activity:'study',nonce:0})},[]);

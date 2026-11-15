@@ -1,3 +1,4 @@
+import {prepareBrowserAccount} from '../tests/browser/account-session.mjs';
 // Illustrated user guide. Screenshots use a fresh, disposable example workspace.
 import {chromium} from 'playwright-core';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
@@ -13,6 +14,7 @@ const browser=await chromium.launch({channel:'msedge',headless:true});
 const context=await browser.newContext({viewport:{width:1280,height:850},deviceScaleFactor:1.5});
 await context.addInitScript(value=>{if(!localStorage.getItem('atlas-workspace-v1'))localStorage.setItem('atlas-workspace-v1',JSON.stringify(value))},seed);
 const app=await context.newPage();const base=process.env.ATLAS_TEST_URL||'http://localhost:3000';
+if(process.env.MANUAL_REUSE_IMAGES!=='1')await prepareBrowserAccount(context,base);
 const shots={};
 async function shot(key,route,action){if(process.env.MANUAL_REUSE_IMAGES==='1'){shots[key]='data:image/png;base64,'+(await readFile(resolve(dir,key+'.png'))).toString('base64');return}await app.goto(base+'/#'+route);await app.locator('main h1').first().waitFor();if(action)await action();
  const focus={note:'.notepad-editor',ink:'.handwriting',practice:'.ai-modes',brief:'.paper',citations:'.bibliography',settings:'.voice-settings',relations:'.relations-controls'}[key];

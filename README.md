@@ -13,7 +13,7 @@ npm.cmd run dev
 
 Open http://localhost:3000. For a production build, run `npm.cmd run build` and `npm.cmd start`.
 
-Copy `.env.example` to `.env.local` to configure AI and optional cloud sync. Keep server keys private. See [current product and setup](docs/CURRENT_PRODUCT.md).
+Copy `.env.example` to `.env.local` and configure Supabase authentication plus AI. Sign-in is required before opening the workspace. Keep server keys private. See [current product and setup](docs/CURRENT_PRODUCT.md).
 
 ## Current workflows
 
@@ -24,7 +24,7 @@ Copy `.env.example` to `.env.local` to configure AI and optional cloud sync. Kee
 - **Projects:** project sources, reading notes, typed/handwritten notebooks, separate policy briefs, evidence links, and citations. Unfiled notes and briefs remain available.
 - **Practice:** material-based study conversations, recitation, diplomacy/MUN roleplay, scenario building, reviewers, quizzes, and flashcards, with neural read-aloud.
 
-Settings includes appearance, voice preferences, JSON backup export/restore, and optional account synchronization. Original files are stored separately from JSON backups.
+Settings includes appearance, voice preferences, JSON backup export/restore, and account synchronization. Original files are stored separately from JSON backups.
 
 ## Documentation
 
@@ -46,3 +46,5 @@ npm.cmd run build
 Live API tests use `ATLAS_TEST_URL`; cloud isolation tests require a configured disposable Supabase test environment.
 
 Browser checks live in `tests/browser`; run the main check with `npm.cmd run test:browser` or the accessibility audit with `npm.cmd run test:ux` against a running app. `scripts/setup-pdf-worker.mjs` is required by installation for PDF imports. `scripts/create-user-manual.mjs` rebuilds the illustrated manual with `npm.cmd run manual:pdf`; the finished PDF is in `output/pdf`. Original reference images are in `docs/design-reference-images`.
+
+Workspace APIs require a verified sign-in. Anonymous requests are rejected. For authenticated endpoint/browser integration checks, provide ATLAS_TEST_AUTH_COOKIE from a disposable test account along with ATLAS_TEST_URL; no guest bypass is built into the app.

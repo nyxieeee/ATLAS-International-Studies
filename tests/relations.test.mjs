@@ -53,7 +53,8 @@ test('relationship research fetches original pages and validates extraction agai
 
  try{const result=await researchRelations(countries[0],'security',countries);assert.equal(result.relations.length,1);assert.equal(result.sourcesChecked,1);assert.equal(result.relations[0].evidence[0].publishedAt,null);assert.ok(calls.includes(source.url))}finally{globalThis.fetch=original;if(originalKey===undefined)delete process.env.GROQ_API_KEY;else process.env.GROQ_API_KEY=originalKey}
 });
-const base=process.env.ATLAS_TEST_URL;
+// These business-endpoint checks require a real disposable signed-in session.
+import {authenticatedBase as base,authFetch as fetch} from './helpers/live-account.mjs';
 test('relationship API rejects invalid countries, pairs and dimensions',{skip:!base},async()=>{for(const query of ['iso=ZZ','iso=PH&dimension=__proto__','iso=PH&target=ZZ','iso=PH&target=PH'])assert.equal((await fetch(base+'/api/relations?'+query)).status,400)});
 test('direct bilateral research queries both countries and retains blocked original links',async()=>{
  const original=globalThis.fetch,key=process.env.GROQ_API_KEY;process.env.GROQ_API_KEY='fixture';const quote='The Philippines and China agreed to pursue dialogue while noting continuing maritime disagreements.';let query='';
