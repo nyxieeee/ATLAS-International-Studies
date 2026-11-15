@@ -140,7 +140,7 @@ test('folder controls create empty folders, rename them, and delete without dele
  await render(Harness,{});await click(button('New folder'));await type('Maritime law');await submit();
  assert.equal(snapshot.folders[0].name,'Maritime law');assert.equal(button('Maritime law').getAttribute('aria-pressed'),'true');
  await click(button('Rename folder'));await type('ASEAN readings');await submit();assert.equal(snapshot.folders[0].name,'ASEAN readings');
- const confirm=globalThis.confirm;globalThis.confirm=()=>true;try{await click(button('Delete folder'))}finally{globalThis.confirm=confirm}
+ const proto=dom.window.HTMLDialogElement.prototype;proto.showModal=function(){this.setAttribute('open','')};proto.close=function(){this.removeAttribute('open')};await click(button('Delete folder'));assert.ok(document.querySelector('dialog[open]'));await click([...document.querySelectorAll('dialog button')].find(b=>b.textContent==='Continue'));assert.equal(document.querySelector('dialog'),null);
  assert.equal(snapshot.folders.length,0);assert.equal(button('All items').getAttribute('aria-pressed'),'true');
 });
 
