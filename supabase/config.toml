@@ -1,0 +1,3 @@
+[functions.atlas-ai]
+# The handler validates bearer tokens with Supabase Auth, including new signing keys.
+verify_jwt = false

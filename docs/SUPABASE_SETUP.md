@@ -28,7 +28,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR-PUBLIC-PUBLISHABLE-KEY
 ```
 
-Use the public publishable key, never a service-role or secret key. AI provider keys remain server-side and are independent of Supabase.
+Use the public publishable key, never a service-role or secret key. AI provider keys belong in Supabase Edge Function secrets. Deploy the authenticated function following [EDGE_AI_SETUP.md](EDGE_AI_SETUP.md); secrets alone do not create the AI endpoint.
 
 Follow [AUTH_SETUP.md](AUTH_SETUP.md) for Site URL, callback allowlists, Google OAuth, email confirmation and password recovery. Set Site URL to your ATLAS origin without a trailing slash. Confirm that `/brand/email-mark.png` loads on that origin after deployment; email clients need the deployed absolute image URL.
 

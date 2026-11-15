@@ -1,13 +1,8 @@
 # ATLAS AI setup
 
-Set these server-side variables in `.env.local` for development, and in the hosting provider's environment for deployment:
+Hosted ATLAS routes AI through the authenticated Supabase `atlas-ai` Edge Function. Store `GROQ_API_KEY` and `MISTRAL_API_KEY` in Supabase secrets, then follow [EDGE_AI_SETUP.md](EDGE_AI_SETUP.md) to deploy the function. Saving secrets alone does not deploy it. The app host needs the public Supabase URL and publishable key, not provider keys.
 
-```dotenv
-GROQ_API_KEY=
-MISTRAL_API_KEY=
-```
-
-Restart the local server after changing keys. Redeploy after changing hosted environment variables. Never prefix these keys with `NEXT_PUBLIC_` or put them in source control.
+For local direct-provider development only, set `ATLAS_AI_BACKEND=direct` and the two provider keys in `.env.local`. Keep all keys private and out of source control.
 
 Text tasks use Groq's `qwen/qwen3.8-27b`: chat, summaries, reviewers, quiz and flashcard generation, practice conversations, source relevance review and interpretation of retrieved relationship passages. Structured tasks request JSON and retain ATLAS's existing source and answer validation.
 

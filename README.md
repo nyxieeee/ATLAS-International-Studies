@@ -28,6 +28,8 @@ Settings includes appearance, voice preferences, JSON backup export/restore, and
 
 ## Documentation
 
+- [Deploy the AI Edge Function](docs/EDGE_AI_SETUP.md) connects hosted AI to provider secrets in Supabase.
+
 - [Supabase schema and email setup](docs/SUPABASE_SETUP.md) explains the active SQL and branded authentication email templates.
 
 - [Current product, setup, and limits](docs/CURRENT_PRODUCT.md) is the current implementation reference.

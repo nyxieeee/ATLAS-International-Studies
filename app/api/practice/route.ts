@@ -1,3 +1,4 @@
+import {aiConfigured} from '@/lib/ai-transport.mjs';
 import {withAccount} from '@/lib/account-access.mjs';
 import {isSameOriginRequest} from '@/lib/request-origin.mjs';
 import {generateSupportedPractice,PracticeGenerationError} from '@/lib/practice-generation.mjs';
@@ -16,7 +17,7 @@ async function handleGET(req:NextRequest){const id=req.nextUrl.searchParams.get(
 async function handlePOST(req:NextRequest){
  if(!isSameOriginRequest(req))return NextResponse.json({error:'Cross-origin requests are not supported.'},{status:403});let body:any;try{const raw=await req.text();if(raw.length>2500000)throw Error();body=JSON.parse(raw)}catch{return NextResponse.json({error:'Invalid or oversized practice request.'},{status:400})}
  if(body?.action==='grade'){try{return NextResponse.json(gradeQuiz(openQuiz(body.token,secret()).items,body.answers),{headers:{'Cache-Control':'no-store'}})}catch{return NextResponse.json({error:'This quiz could not be graded. Answer all questions; if the server restarted or the quiz expired, generate a new version.'},{status:400})}}
- const invalid=validatePracticeRequest(body)||(body.mode!=='general'?validatePractice(body):null);if(invalid)return NextResponse.json({error:invalid},{status:400});if(!process.env.GROQ_API_KEY)return NextResponse.json({error:'AI is currently unavailable. Please try again later.'},{status:503});if(active>=2)return NextResponse.json({error:'Practice generation is busy. Please retry shortly.'},{status:429});
+ const invalid=validatePracticeRequest(body)||(body.mode!=='general'?validatePractice(body):null);if(invalid)return NextResponse.json({error:invalid},{status:400});if(!aiConfigured('text'))return NextResponse.json({error:'AI is currently unavailable. Please try again later.'},{status:503});if(active>=2)return NextResponse.json({error:'Practice generation is busy. Please retry shortly.'},{status:429});
  active++;try{
  let materials=body.materials,scope='',readings:any[]=[],warnings:string[]=[];const mode=body.mode==='general'?'general':'materials';
  if(mode==='general'){const result=await loadSubjectReadings(body.subjectId);materials=result.materials;scope=result.subject.title+'. '+result.subject.scope;warnings=result.warnings;readings=materials.map(({text,...source}:any)=>source)}

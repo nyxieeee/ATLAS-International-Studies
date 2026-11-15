@@ -1,3 +1,4 @@
+import {aiConfigured} from '@/lib/ai-transport.mjs';
 import {withAccount} from '@/lib/account-access.mjs';
 import {AiServiceError} from '@/lib/ai-provider.mjs';
 import {NextRequest,NextResponse} from 'next/server';
@@ -10,7 +11,7 @@ const cache=new Map<string,{expires:number;data:any}>();const pending=new Map<st
 async function handleGET(req:NextRequest){
  const iso=req.nextUrl.searchParams.get('iso'),dimension=req.nextUrl.searchParams.get('dimension')||'diplomacy';const country=countries.find(c=>c.iso===iso);const targetIso=req.nextUrl.searchParams.get('target')||'';const target=countries.find(c=>c.iso===targetIso);
  if((targetIso&&(!target||targetIso===iso))||!country||!Object.hasOwn(RELATION_DIMENSIONS,dimension))return NextResponse.json({error:'Choose a listed country and relationship dimension.'},{status:400});
- if(!process.env.GROQ_API_KEY)return NextResponse.json({error:'Relationship research is currently unavailable. Configure the AI service to fetch cited evidence.'},{status:503});
+ if(!aiConfigured('text'))return NextResponse.json({error:'Relationship research is currently unavailable. Configure the AI service to fetch cited evidence.'},{status:503});
  const key='qwen-assessment-v1:'+iso+':'+dimension+':'+targetIso,old=cache.get(key);const refresh=req.nextUrl.searchParams.get('refresh')==='true';
  if(old&&old.expires>Date.now()&&(!refresh||(old.data.relations.length>0&&Date.now()-Date.parse(old.data.fetchedAt)<60000)))return NextResponse.json(old.data,{headers:{'Cache-Control':'no-store'}});
  if(!pending.has(key)){

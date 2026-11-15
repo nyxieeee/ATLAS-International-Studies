@@ -47,7 +47,7 @@ test('actual Supabase browser cookies are readable by the server and cached user
   const login=await client.auth.signInWithPassword({email:'fixture@example.com',password:'fixture-password'});assert.equal(login.error,null);
   const cookie=document.cookie;assert.match(cookie,/sb-fixture-auth-token/);client.auth.stopAutoRefresh();client.auth.broadcastChannel?.close();delete globalThis.window;delete globalThis.document;dom.window.close();
   globalThis.fetch=provider;const request=new Request('https://atlas.example/api/ai',{headers:{cookie}});
-  const account=await verifyAccount(request);assert.ok(checked);assert.equal(account.user.id,'verified-cookie-user');
+  const account=await verifyAccount(request);assert.ok(checked);assert.equal(account.user.id,'verified-cookie-user');assert.equal(account.accessToken,token);
   reject=true;const denied=await verifyAccount(request);assert.equal(denied.user,null);assert.equal(denied.status,401);
  }finally{client.auth.stopAutoRefresh();client.auth.broadcastChannel?.close();globalThis.fetch=original;dom.window.close();delete globalThis.window;delete globalThis.document}
 });
