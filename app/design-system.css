@@ -626,3 +626,9 @@ main .rich-toolbar :is(button, select) { min-height: var(--compact-height); font
 @media(max-width:760px){.messenger-chat .messenger-layout{grid-template-columns:minmax(0,1fr);height:calc(100dvh - 225px);min-height:430px;border-radius:16px}.messenger-chat .chat-history{display:none}.messenger-chat .chat-history-toggle{display:flex}.messenger-chat .show-chat-history .chat-history{display:flex;border:0}.messenger-chat .show-chat-history .chat-conversation{display:none}.messenger-chat .chat-heading{padding:12px;gap:8px}.messenger-chat .ai-message{max-width:96%}.messenger-chat .ai-message.user{max-width:85%}.messenger-chat .chat-messages{padding:18px 12px}.chat-compose-area{padding:8px 10px 12px}.messenger-chat .chat-footnote{font-size:9px}.messenger-chat .chat-welcome h2{font-size:25px}.messenger-chat .chat-welcome{padding:20px 5px}.messenger-chat .page-heading h1{font-size:28px}}
 @media(prefers-reduced-motion:reduce){.messenger-chat .ai-message,.chat-typing>span{animation:none!important}}
 .messenger-chat .messenger-layout{align-items:stretch;grid-template-rows:minmax(0,1fr)}.messenger-chat .chat-history,.messenger-chat .chat-conversation{height:100%;min-height:0}.messenger-chat .ai-message .message-bubble{border-radius:19px}.messenger-chat .ai-message.assistant .message-bubble{border-bottom-left-radius:5px}.messenger-chat .ai-message.user .message-bubble{border-bottom-right-radius:5px}
+/* Keep filter cards, fetch status and country detail sections visually separate. */
+.live-map .live-feed-controls{margin-bottom:var(--space-5)}
+.relations-panel.country-panel{padding:var(--space-6)}
+.relations-panel .country-heading{margin-bottom:var(--space-6)}
+.relations-panel .relations-tabs{margin-bottom:var(--space-6)}
+.relations-panel>.caption{margin-top:0}
