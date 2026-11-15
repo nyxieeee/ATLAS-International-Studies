@@ -2,7 +2,8 @@
 import {confirmAction} from '@/lib/confirm-action.mjs';
 import {ProfilePhotoSettings} from './AccountAvatar';
 import LoadingStatus from './LoadingStatus';
-import {useEffect,useRef,useState} from 'react';
+import {WorkspaceReadyContext} from './RequireAccount';
+import {useContext,useEffect,useRef,useState} from 'react';
 import type {User} from '@supabase/supabase-js';
 import {Cloud,CloudOff,RefreshCw,LogOut,Download,Upload,Check} from 'lucide-react';
 import {pushSnapshot,hasSyncConflict} from '@/lib/workspace-core.mjs';
@@ -14,6 +15,7 @@ import {emptyWorkspace,Workspace} from '@/lib/workspace-types';
 const guestKey='atlas-workspace-v1';
 const normalize=(data:Partial<Workspace>):Workspace=>normalizeWorkspace(data,emptyWorkspace());
 export default function CloudWorkspace({workspace,onLoad,visible,onStatus}:{workspace:Workspace;onLoad:(w:Workspace)=>void;visible:boolean;onStatus:(s:string)=>void}){
+ const reportReady=useContext(WorkspaceReadyContext);
  const [client,setClient]=useState<ReturnType<typeof getCloudClient>>(null);
  const [user,setUser]=useState<User|null|undefined>(undefined),[status,setStatus]=useState('Loading workspace…'),[error,setError]=useState(''),[busy,setBusy]=useState(false),[nonce,setNonce]=useState(0),[conflict,setConflict]=useState(false),[storageError,setStorageError]=useState('');
  const latest=useRef(workspace),load=useRef(onLoad),statusCallback=useRef(onStatus),scope=useRef(''),hydrated=useRef(false),expected=useRef<string|null>(null),revision=useRef(0),saved=useRef(''),inFlight=useRef(false),generation=useRef(0),conflicted=useRef(false),syncAllowed=useRef(false);
@@ -23,22 +25,23 @@ export default function CloudWorkspace({workspace,onLoad,visible,onStatus}:{work
  useEffect(()=>{statusCallback.current(status)},[status]);
  useEffect(()=>{if(!client)return;const {data}=client.auth.onAuthStateChange((_event,session)=>{setUser(session?.user||null)});return()=>data.subscription.unsubscribe()},[client]);
  useEffect(()=>{
-  if(user===undefined)return;let live=true;const gen=++generation.current;hydrated.current=false;syncAllowed.current=false;conflicted.current=false;setConflict(false);setError('');setStatus('Loading workspace…');const key=user?'atlas-account-'+user.id:guestKey;scope.current=key;setFileScope(key);
+  if(user===undefined)return;reportReady(false);let live=true;const gen=++generation.current;hydrated.current=false;syncAllowed.current=false;conflicted.current=false;setConflict(false);setError('');setStatus('Loading workspace…');const key=user?'atlas-account-'+user.id:guestKey;scope.current=key;setFileScope(key);
   // Clear the previous account immediately while the selected account is loaded.
   load.current(emptyWorkspace());
   let local:any=null;
   try{const raw=localStorage.getItem(key);if(raw){const j=JSON.parse(raw);local=user?j:{data:j,revision:0,dirty:false};}}catch{setStorageError('The local backup could not be read. Export your workspace before closing.');}
   revision.current=local?.revision||0;saved.current='';
   const apply=(data:Partial<Workspace>)=>{const w=normalize(data);expected.current=stableStringify(w);load.current(w);hydrated.current=true;};
-  if(!user){saved.current='';revision.current=0;apply(local?.data||{});setStatus('Saved on this device');return()=>{live=false;generation.current++};}
+  if(!user){reportReady(false,'Sign in to load your saved workspace.');saved.current='';revision.current=0;apply(local?.data||{});setStatus('Saved on this device');return()=>{live=false;generation.current++};}
   (async()=>{try{
    const {data,error}=await client!.from('atlas_workspaces').select('data,revision').eq('user_id',user.id).maybeSingle();if(error)throw error;if(!live||generation.current!==gen)return;
    revision.current=data?.revision||0;saved.current=stableStringify(normalize(data?.data||{}));
    const hasConflict=hasSyncConflict(local,revision.current);
    conflicted.current=hasConflict;setConflict(hasConflict);syncAllowed.current=true;
    apply(local?.dirty?local.data:data?.data||local?.data||{});
+   reportReady(true);
    setStatus(hasConflict?'Sync conflict — choose a version':local?.dirty?'Changes waiting to sync':'Cloud workspace ready');
-  }catch(e:any){if(!live)return;apply(local?.data||{});setStatus('Offline · saved on this device');setError('Cloud could not be loaded. Check your connection and retry.');}
+  }catch(e:any){if(!live||generation.current!==gen)return;reportReady(false,'Your saved workspace could not be loaded. Check your connection and try again.');apply(local?.data||{});setStatus('Offline · saved on this device');setError('Cloud could not be loaded. Check your connection and retry.');}
   })();
   return()=>{live=false;generation.current++};
  },[user?.id,user===undefined,client,nonce]);

@@ -1,9 +1,9 @@
 'use client';
 import {confirmAction} from '@/lib/confirm-action.mjs';
-import RequireAccount,{WorkspaceReadyContext} from '@/components/RequireAccount';
+import RequireAccount from '@/components/RequireAccount';
 import AccountAvatar from '@/components/AccountAvatar';
 import LoadingStatus from '@/components/LoadingStatus';
-import {useCallback,useContext,useEffect,useRef,useState,type SetStateAction} from 'react';
+import {useCallback,useEffect,useRef,useState,type SetStateAction} from 'react';
 import {MessageSquare,Home,Globe2,Search,Library,Layers,Sparkles,Menu,X,ChevronRight,Plus,FileText,BookOpen,Download,Sun,Moon,Trash2,Bookmark,ExternalLink} from 'lucide-react';
 import MotionPresence from '@/components/MotionPresence';
 import WorkspaceSidebar from '@/components/WorkspaceSidebar';
@@ -27,11 +27,9 @@ function download(name:string,text:string){const url=URL.createObjectURL(new Blo
 function safeUrl(value:string){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password?u.href:undefined}catch{return undefined}}
 export default function App(){return <RequireAccount waitForWorkspace><WorkspaceApp/></RequireAccount>}
 function WorkspaceApp(){
- const [workspace,setWorkspace]=useState<Workspace>(emptyWorkspace),[route,setRoute]=useState(()=>resolveRoute('home')),[navigationEpoch,setNavigationEpoch]=useState(0),[mobile,setMobile]=useState(false),[ready,setReady]=useState(false),[epoch,setEpoch]=useState(0),[syncStatus,setSyncStatus]=useState('Loading workspace...'),[query,setQuery]=useState(''),[searchSeed,setSearchSeed]=useState(''),[notice,setNotice]=useState(''),[detail,setDetail]=useState<SavedReference|null>(null),[launch,setLaunch]=useState<{ids:string[];activity:string;nonce:number;action?:string}>({ids:[],activity:'study',nonce:0});
- const reportWorkspaceReady=useContext(WorkspaceReadyContext);
- useEffect(()=>{reportWorkspaceReady(ready&&!syncStatus.startsWith('Loading workspace'))},[ready,syncStatus,reportWorkspaceReady]);
+ const [workspace,setWorkspace]=useState<Workspace>(emptyWorkspace),[route,setRoute]=useState(()=>resolveRoute('home')),[navigationEpoch,setNavigationEpoch]=useState(0),[mobile,setMobile]=useState(false),[epoch,setEpoch]=useState(0),[syncStatus,setSyncStatus]=useState('Loading workspace...'),[query,setQuery]=useState(''),[searchSeed,setSearchSeed]=useState(''),[notice,setNotice]=useState(''),[detail,setDetail]=useState<SavedReference|null>(null),[launch,setLaunch]=useState<{ids:string[];activity:string;nonce:number;action?:string}>({ids:[],activity:'study',nonce:0});
  const page=route.page,dialog=useRef<HTMLElement>(null);
- const loadWorkspace=useCallback((value:Workspace)=>{setWorkspace(value);setEpoch(n=>n+1);setReady(true);setDetail(null);setLaunch({ids:[],activity:'study',nonce:0})},[]);
+ const loadWorkspace=useCallback((value:Workspace)=>{setWorkspace(value);setEpoch(n=>n+1);setDetail(null);setLaunch({ids:[],activity:'study',nonce:0})},[]);
  const field=<K extends keyof Workspace,>(key:K)=>(next:SetStateAction<Workspace[K]>)=>setWorkspace(w=>({...w,[key]:typeof next==='function'?(next as (old:Workspace[K])=>Workspace[K])(w[key]):next}));
  const go=(target:string)=>{setNavigationEpoch(n=>n+1);setRoute(resolveRoute(target));location.hash=target;setMobile(false)};
  useEffect(()=>{const change=()=>{setRoute(resolveRoute(location.hash));setMobile(false)};change();window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change)},[]);
