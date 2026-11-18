@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import {providerRequest,aiConfigured} from '../lib/ai-transport.mjs';
 import {withAccount} from '../lib/account-access.mjs';
 import {withAiAccount} from '../lib/ai-context.mjs';
-const original=globalThis.fetch,keys=['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','ATLAS_AI_BACKEND','ATLAS_AI_EDGE_FUNCTION','GROQ_API_KEY','MISTRAL_API_KEY'];
+const original=globalThis.fetch,keys=['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY','ATLAS_AI_BACKEND','ATLAS_AI_EDGE_FUNCTION','GROQ_API_KEY','GEMINI_API_KEY'];
 const values=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
 afterEach(()=>{globalThis.fetch=original;for(const [key,value]of Object.entries(values)){if(value===undefined)delete process.env[key];else process.env[key]=value}});
 const configure=()=>{process.env.NEXT_PUBLIC_SUPABASE_URL='https://fixture.supabase.co';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='public-fixture';delete process.env.ATLAS_AI_BACKEND;delete process.env.ATLAS_AI_EDGE_FUNCTION};
 test('Supabase configuration routes AI to Edge without provider keys on the app host',async()=>{
- configure();delete process.env.GROQ_API_KEY;delete process.env.MISTRAL_API_KEY;assert.ok(aiConfigured('text'));assert.ok(aiConfigured('ocr'));
+ configure();delete process.env.GROQ_API_KEY;delete process.env.GEMINI_API_KEY;assert.ok(aiConfigured('text'));assert.ok(aiConfigured('ocr'));
  globalThis.fetch=async(url,options)=>{assert.equal(String(url),'https://fixture.supabase.co/functions/v1/atlas-ai');assert.equal(options.headers.Authorization,'Bearer verified-user-token');assert.equal(options.headers.apikey,'public-fixture');assert.equal(JSON.parse(options.body).mode,'text');assert.ok(!options.body.includes('verified-user-token'));return Response.json({choices:[]})};
  await withAiAccount({accessToken:'verified-user-token'},()=>providerRequest('text',{messages:[{role:'user',content:'Hi'}]}));
 });

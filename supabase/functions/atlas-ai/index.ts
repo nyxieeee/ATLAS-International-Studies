@@ -1,6 +1,6 @@
 // Deploy this complete file as the Supabase Edge Function named "atlas-ai".
-// Secrets: GROQ_API_KEY and MISTRAL_API_KEY. No provider keys go to the browser.
-const models={text:'qwen/qwen3.8-27b',search:'openai/gpt-oss-120b',ocr:'ministral-8b-latest'};
+// Secrets: GROQ_API_KEY and GEMINI_API_KEY. No provider keys go to the browser.
+const models={text:'qwen/qwen3.8-27b',search:'openai/gpt-oss-120b',ocr:'gemini-3.5-flash-lite'};
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info','Access-Control-Allow-Methods':'POST,OPTIONS'};
 function reply(body:unknown,status=200,extra:Record<string,string>={}){return Response.json(body,{status,headers:{...cors,'Cache-Control':'no-store',...extra}})}
 function error(code:string,message:string,status:number){return reply({error:{code,message}},status)}
@@ -40,16 +40,16 @@ export async function handleAtlasAi(request:Request){
  }
  if(characters>160000||images>1||(mode==='ocr'&&images!==1))return error('ATLAS_EDGE_INPUT','The AI request exceeds the supported size.',400);
  if(payload.tools&&mode!=='search')return error('ATLAS_EDGE_INPUT','Search tools are not available for this task.',400);
- const key=Deno.env.get(mode==='ocr'?'MISTRAL_API_KEY':'GROQ_API_KEY');
+ const key=Deno.env.get(mode==='ocr'?'GEMINI_API_KEY':'GROQ_API_KEY');
  if(!key)return error('ATLAS_EDGE_SETUP','AI is not set up yet. Please ask the app administrator to finish setup.',503);
  const requested=payload.max_completion_tokens??payload.max_tokens??2000;
  const maxTokens=Math.max(64,Math.min(mode==='search'?2500:mode==='ocr'?4000:7000,Number.isFinite(requested)?Math.floor(requested):2000));
- const body={model:models[mode],messages:payload.messages,temperature:typeof payload.temperature==='number'?Math.max(0,Math.min(1,payload.temperature)):.3,
+ const body={model:models[mode],messages:mode==='ocr'?payload.messages.map((m:any)=>({...m,content:Array.isArray(m.content)?m.content.map((p:any)=>p.type==='image_url'?{type:'image_url',image_url:typeof p.image_url==='string'?{url:p.image_url}:p.image_url}:p):m.content})):payload.messages,temperature:typeof payload.temperature==='number'?Math.max(0,Math.min(1,payload.temperature)):.3,
   ...(mode==='ocr'?{max_tokens:maxTokens}:{max_completion_tokens:maxTokens,include_reasoning:false,reasoning_effort:mode==='search'?'low':'none'}),
   ...(mode==='search'?{tools:[{type:'browser_search'}],tool_choice:'required'}:payload.response_format?.type==='json_object'?{response_format:{type:'json_object'}}:{}),
  };
  try{
-  const upstream=await fetch(mode==='ocr'?'https://api.mistral.ai/v1/chat/completions':'https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify(body),signal:AbortSignal.any([request.signal,AbortSignal.timeout(50000)])});
+  const upstream=await fetch(mode==='ocr'?'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions':'https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify(body),signal:AbortSignal.any([request.signal,AbortSignal.timeout(50000)])});
   const data=await upstream.json().catch(()=>({}));
   if(upstream.status===429){
    const message=String(data.error?.message||''),usage=/daily|per day|insufficient_quota|credits? exhausted|spending limit/i.test(message),rate=!usage&&/per minute|rate.limit/i.test(message);

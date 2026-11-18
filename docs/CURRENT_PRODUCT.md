@@ -208,3 +208,7 @@ The root schema.sql now matches active account snapshot synchronization and priv
 ## Required sign-in (November 15, 2026)
 
 The guest-entry behavior is removed. Root requests require server-verified Supabase cookie sessions and redirect to login otherwise. Each app API handler independently verifies the user before running; UI-only hiding is not used as authorization. A client guard keeps the workspace unmounted until a session exists and redirects immediately on sign-out. Authentication, Google callback, signup and recovery pages remain public. Cookies use the official Supabase SSR adapter; older localStorage-only logins may need a fresh sign-in. Existing account and device backups remain intact. Business API/browser integration checks now require a disposable account cookie; anonymous-boundary checks run separately.
+
+## Current OCR routing ? November 18, 2026
+
+This supersedes the OCR provider notes above: images and scanned PDF pages now use Gemini gemini-3.5-flash-lite with GEMINI_API_KEY in Supabase Edge secrets. Text tasks remain on Groq Qwen and grounded discovery on GPT-OSS 120B. Existing deployments must redeploy atlas-ai and the app; no database migration is needed. See AI_SETUP.md and EDGE_AI_SETUP.md.
