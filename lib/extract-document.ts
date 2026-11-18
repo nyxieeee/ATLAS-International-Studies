@@ -25,7 +25,7 @@ export async function extractDocument(file:File,progress:(s:string)=>void,signal
  try{
   if(pdf.numPages>40)throw Error('Import at most 40 PDF pages at once. Split longer documents.');
   for(let i=1;i<=pdf.numPages;i++){
-   if(signal.aborted)throw new DOMException('Cancelled','AbortError');progress(`Reading page ${i} of ${pdf.numPages}?`);const page=await pdf.getPage(i);
+   if(signal.aborted)throw new DOMException('Cancelled','AbortError');progress(`Reading page ${i} of ${pdf.numPages}...`);const page=await pdf.getPage(i);
    try{
     const content=await page.getTextContent();let text=content.items.map((v:any)=>v.str?(v.str+(v.hasEOL?'\n':' ')):'').join('');
     if(text.trim().length<20){
