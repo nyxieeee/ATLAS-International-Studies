@@ -23,7 +23,7 @@ async function handleGET(){return NextResponse.json({configured:aiConfigured('te
 async function handlePOST(req:NextRequest){
  if(!isSameOriginRequest(req))return NextResponse.json({error:'Cross-origin requests are not supported.'},{status:403});
  if(active>=3)return NextResponse.json({error:'Other AI requests are still running. Please retry shortly.'},{status:429});
- let body:any;try{if(Number(req.headers.get('content-length')||0)>6200000)throw Error();const text=await req.text();if(text.length>6200000)throw Error();body=JSON.parse(text)}catch(e){if(e instanceof AiServiceError)return NextResponse.json({error:e.message},{status:e.status});return NextResponse.json({error:'Invalid or oversized AI request.'},{status:400})}
+ let body:any;try{if(Number(req.headers.get('content-length')||0)>6200000)throw Error();const text=await req.text();if(text.length>6200000)throw Error();body=JSON.parse(text)}catch(e){if(e instanceof AiServiceError){const limit=e as AiServiceError & {kind?:string;retryAfterMs?:number|null};return NextResponse.json({error:e.message,kind:limit.kind,retryAfterMs:limit.retryAfterMs},{status:e.status,headers:typeof limit.retryAfterMs==='number'?{'Retry-After':String(Math.max(1,Math.ceil(limit.retryAfterMs/1000)))}:{}})}return NextResponse.json({error:'Invalid or oversized AI request.'},{status:400})}
  const invalid=validateAiBody(body);if(invalid)return NextResponse.json({error:invalid},{status:400});
  if(body.task==='ocr'&&!validImageBytes(body.image))return NextResponse.json({error:'The file does not contain a supported image.'},{status:400});
  const route=AI_ROUTES[body.task as keyof typeof AI_ROUTES];const key=aiConfigured(body.task==='ocr'?'ocr':'text');
@@ -37,7 +37,7 @@ async function handlePOST(req:NextRequest){
   const j=await generateCompletion({model,messages:[{role:'system',content:system},...messages],temperature:body.task==='ocr'?.1:.5,max_tokens:body.task==='reviewer'?5000:body.task==='ocr'?4000:1400},AbortSignal.timeout(55000));
   output=j.choices?.[0]?.message?.content||'';
  if(typeof output!=='string'||!output.trim())throw Error('empty');return NextResponse.json({text:output.replace(/<think>[\s\S]*?<\/think>/gi,'').trim(),provider:route.provider,model,citations,generatedAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
- }catch(e){if(e instanceof AiServiceError)return NextResponse.json({error:e.message},{status:e.status});return NextResponse.json({error:'The AI provider could not complete this request. Check the configured model, API key, provider allowance, and connection, then retry. Your input has not been replaced by a generated fallback.'},{status:502})}finally{active--}
+ }catch(e){if(e instanceof AiServiceError){const limit=e as AiServiceError & {kind?:string;retryAfterMs?:number|null};return NextResponse.json({error:e.message,kind:limit.kind,retryAfterMs:limit.retryAfterMs},{status:e.status,headers:typeof limit.retryAfterMs==='number'?{'Retry-After':String(Math.max(1,Math.ceil(limit.retryAfterMs/1000)))}:{}})}return NextResponse.json({error:'The AI provider could not complete this request. Check the configured model, API key, provider allowance, and connection, then retry. Your input has not been replaced by a generated fallback.'},{status:502})}finally{active--}
 }
 
 export const GET=withAccount(handleGET);

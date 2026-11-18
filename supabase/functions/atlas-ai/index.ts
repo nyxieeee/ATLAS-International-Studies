@@ -52,7 +52,7 @@ export async function handleAtlasAi(request:Request){
   const upstream=await fetch(mode==='search'?'https://api.groq.com/openai/v1/chat/completions':'https://api.mistral.ai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify(body),signal:AbortSignal.any([request.signal,AbortSignal.timeout(50000)])});
   const data=await upstream.json().catch(()=>({}));
   if(upstream.status===429){
-   const message=String(data.error?.message||''),usage=/daily|per day|insufficient_quota|credits? exhausted|spending limit/i.test(message),rate=!usage&&/per minute|rate.limit/i.test(message);
+   const message=String(data.error?.message||data.message||''),usage=/daily|per day|insufficient_quota|credits? exhausted|spending limit/i.test(message),rate=!usage&&/per minute|rate.limit/i.test(message);
    const retry=upstream.headers.get('retry-after')||message.match(/try again in\s+([\d.]+)s/i)?.[1];
    return reply({error:{code:usage?'daily_limit':rate?'rate_limit_exceeded':'provider_limit',message:usage?'The AI provider reported a daily or account usage limit.':rate?'The AI provider reached its per-minute rate limit.':'The AI provider limited this request.'}},429,retry?{'Retry-After':retry}:{});
   }

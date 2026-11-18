@@ -1,11 +1,29 @@
 ﻿'use client';
 import {isEmptyOcrReport} from './ocr-output.mjs';
-export async function extractImage(image:string,signal?:AbortSignal){
+function ocrWait(ms:number,signal?:AbortSignal){return new Promise<void>((resolve,reject)=>{
+ if(signal?.aborted){reject(new DOMException('Cancelled','AbortError'));return}
+ const abort=()=>{clearTimeout(timer);reject(new DOMException('Cancelled','AbortError'))};
+ const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);resolve()},ms);
+ signal?.addEventListener('abort',abort,{once:true});
+})}
+export async function extractImage(image:string,signal?:AbortSignal,progress:(s:string)=>void=()=>{},wait=ocrWait){
+ for(let attempt=0;attempt<3;attempt++){
  const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:'ocr',image}),signal});const j=await r.json();
+ if(r.status===429&&j.kind!=='usage-limit'&&attempt<2){
+  const header=r.headers.get('retry-after');
+  const retry=typeof j.retryAfterMs==='number'?j.retryAfterMs:header&&/^\d+(?:\.\d+)?$/.test(header)?Number(header)*1000:null;
+  const delay=retry??(j.kind==='rate-limit'?60000:null);
+  if(delay!==null&&Number.isFinite(delay)&&delay>=0&&delay<=60000){
+   progress(`OCR is cooling down for ${Math.max(1,Math.ceil(delay/1000))} seconds, then retrying this page...`);
+   await wait(Math.max(1000,delay)+250,signal);continue;
+  }
+ }
  if(!r.ok)throw Object.assign(Error(j.error||'OCR failed.'),{status:r.status});
  const text=typeof j.text==='string'?j.text.trim():'';
  if(isEmptyOcrReport(text))throw Object.assign(Error('No readable text was returned. Review the original page or try a clearer scan.'),{code:'OCR_NO_TEXT'});
  return text;
+ }
+ throw Error('OCR could not complete after waiting for the provider.');
 }
 export async function imageFile(file:File){
  // Preserve original pixels for normal-sized images instead of re-encoding through canvas.
@@ -17,7 +35,7 @@ export async function imageFile(file:File){
 export async function extractDocument(file:File,progress:(s:string)=>void,signal:AbortSignal):Promise<{text:string;warnings:string[];ai:boolean}>{
  if(file.size>10*1024*1024)throw Error('Choose a document up to 10 MB.');const ext=file.name.split('.').pop()?.toLowerCase();if(signal.aborted)throw new DOMException('Cancelled','AbortError');
  if(['txt','md','csv'].includes(ext||'')){const text=await file.text();if(text.length>200000)throw Error('Text documents must contain at most 200,000 characters.');return {text,warnings:[],ai:false}}
- if(['png','jpg','jpeg','webp'].includes(ext||'')){progress('Reading the image with AI…');return {text:await extractImage(await imageFile(file),signal),warnings:['AI transcription: review names, figures, and uncertain words before use.'],ai:true}}
+ if(['png','jpg','jpeg','webp'].includes(ext||'')){progress('Reading the image with AI…');return {text:await extractImage(await imageFile(file),signal,progress),warnings:['AI transcription: review names, figures, and uncertain words before use.'],ai:true}}
  if(ext==='docx'){progress('Extracting document text locally…');const mammoth=await import('mammoth');const result=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});if(result.value.length>200000)throw Error('The extracted text is too large. Split the document into smaller files.');return {text:result.value,warnings:result.messages.map(m=>m.message),ai:false}}
  if(ext==='pptx'){progress('Extracting lecture slides locally…');const {default:JSZip}=await import('jszip');const zip=await JSZip.loadAsync(await file.arrayBuffer());const slides=Object.keys(zip.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).sort((a,b)=>Number(a.match(/slide(\d+)/)?.[1])-Number(b.match(/slide(\d+)/)?.[1]));if(slides.length>200)throw Error('Import at most 200 slides at once.');let text='';for(let i=0;i<slides.length;i++){if(signal.aborted)throw new DOMException('Cancelled','AbortError');const entry=zip.files[slides[i]];if(((entry as any)._data?.uncompressedSize||0)>2000000)throw Error('A slide is too large to extract safely.');const xml=await entry.async('string');const doc=new DOMParser().parseFromString(xml,'application/xml');const content=Array.from(doc.getElementsByTagNameNS('*','t')).map(n=>n.textContent||'').join('\n');text+='[Slide '+(i+1)+']\n'+content+'\n\n';if(text.length>200000)throw Error('The extracted text is too large. Import fewer slides.');}return {text:text.trim(),warnings:['Slide text only; diagrams, embedded images, speaker notes, and animations are not extracted.'],ai:false};}
  if(ext!=='pdf')throw Error('Choose a PDF, DOCX, PPTX, TXT, MD, CSV, PNG, JPEG, or WebP file.');
@@ -33,10 +51,10 @@ export async function extractDocument(file:File,progress:(s:string)=>void,signal
      ai=true;const viewport=page.getViewport({scale:1});const scaled=page.getViewport({scale:1600/Math.max(viewport.width,viewport.height)});const canvas=document.createElement('canvas');canvas.width=Math.round(scaled.width);canvas.height=Math.round(scaled.height);const ctx=canvas.getContext('2d');if(!ctx)throw Error('Page rendering unavailable.');
      try{
       await page.render({canvas,canvasContext:ctx,viewport:scaled,background:'rgb(255,255,255)'}).promise;
-      text=await extractImage(canvas.toDataURL('image/jpeg',.88),signal);
+      text=await extractImage(canvas.toDataURL('image/jpeg',.88),signal,s=>progress(`Page ${i} of ${pdf.numPages}: ${s}`));
      }catch(e:any){
       if(e.name==='AbortError')throw e;unread.push(i);text='';
-      if(e.status===429){ocrLimited=true;warnings.push('OCR paused because the provider limited this request. Remaining scanned pages were not sent. Try again later or use a PDF with selectable text.')}
+      if(e.status===429){ocrLimited=true;warnings.push('OCR paused because the provider limited this request after bounded cooldown handling. Remaining scanned pages were not sent. Try again later or use a PDF with selectable text.')}
       else if(e.code!=='OCR_NO_TEXT')warnings.push(`Page ${i} could not be read. ${e.message}`);
      }finally{canvas.width=0;canvas.height=0}
     }

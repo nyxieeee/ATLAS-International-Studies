@@ -10,6 +10,10 @@ const ai=await route('ai'),practice=await route('practice'),search=await route('
 afterEach(()=>{globalThis.fetch=original;if(ocrKey===undefined)delete process.env.GEMINI_API_KEY;else process.env.GEMINI_API_KEY=ocrKey;if(key===undefined)delete process.env.MISTRAL_API_KEY;else process.env.MISTRAL_API_KEY=key});
 const req=(path,body)=>new server.NextRequest('http://0.0.0.0/api/'+path,{method:'POST',headers:{'content-type':'application/json',host:'localhost',origin:'http://localhost'},body:JSON.stringify(body)});
 const response=text=>Response.json({choices:[{finish_reason:'stop',message:{content:text}}]});
+test('OCR forwards Mistral cooldown metadata to the page importer',async()=>{
+ process.env.MISTRAL_API_KEY='fixture';globalThis.fetch=async()=>Response.json({message:'Requests per minute rate limit exceeded.'},{status:429,headers:{'Retry-After':'30'}});
+ const r=await ai.POST(req('ai',{task:'ocr',image:'data:image/png;base64,iVBORw0KGgo='}));const body=await r.json();assert.equal(r.status,429);assert.equal(body.kind,'rate-limit');assert.equal(body.retryAfterMs,30000);assert.equal(r.headers.get('retry-after'),'30');
+});
 test('AI route transcribes embedded image via Ministral and returns neutral configured status',async()=>{
  process.env.MISTRAL_API_KEY='fixture';process.env.GEMINI_API_KEY='ocr-fixture';let sent;globalThis.fetch=async(url,options)=>{sent=JSON.parse(options.body);return response('Visible lecture text.')};
  const r=await ai.POST(req('ai',{task:'ocr',image:'data:image/png;base64,iVBORw0KGgo='}));assert.equal(r.status,200);assert.equal((await r.json()).text,'Visible lecture text.');assert.equal(sent.messages[1].content[1].image_url.url,'data:image/png;base64,iVBORw0KGgo=');assert.equal((await (await ai.GET()).json()).configured,true);
