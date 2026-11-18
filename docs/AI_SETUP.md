@@ -35,3 +35,15 @@ Google lists a free tier for this model, subject to account access and quotas; f
 References: [Gemini model](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite), [native image input](https://ai.google.dev/gemini-api/docs/image-understanding), [pricing](https://ai.google.dev/gemini-api/docs/pricing#gemini-3.5-flash-lite).
 
 The native OCR adapter maps system instructions separately from user image parts and strips thought parts from the result. Blocked or incomplete results remain failures. This replaces the compatibility endpoint; redeploy both atlas-ai and the app for this change. No live transcription is claimed without testing the provider and source image.
+
+## PDF image decoders
+
+The browser importer must configure `/pdfjs/wasm/`, `/pdfjs/cmaps/` and `/pdfjs/standard_fonts/`. `scripts/setup-pdf-worker.mjs` copies these matching-version assets alongside the worker during postinstall, including JBIG2 and JPEG2000 decoders and JavaScript fallbacks. Without them, PDF.js can finish rendering a scanned page as a blank canvas, causing valid no-text OCR reports. These assets are generated from the installed package and must be included in the deployment.
+
+To verify an image-only PDF locally without spending provider quota:
+
+```powershell
+node tests/browser/scanned-pdf-smoke.mjs "C:\path\to\scanned.pdf"
+```
+
+This browser regression uses the actual importer and checks that every image sent to the mocked OCR endpoint has visible pixels. It does not claim to verify live AI transcription. Original PDFs are read locally and are not committed.

@@ -8,3 +8,6 @@
 artifacts/
 
 tmp/
+
+# Recreated from installed PDF.js by postinstall.
+public/pdfjs/
