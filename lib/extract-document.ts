@@ -1,9 +1,10 @@
 ﻿'use client';
+import {isEmptyOcrReport} from './ocr-output.mjs';
 export async function extractImage(image:string,signal?:AbortSignal){
  const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:'ocr',image}),signal});const j=await r.json();
  if(!r.ok)throw Object.assign(Error(j.error||'OCR failed.'),{status:r.status});
  const text=typeof j.text==='string'?j.text.trim():'';
- if(!text||/^(?:there is |there's )?no (?:visible |readable |legible )?text(?: is present| was found| could be| detected| found| to transcribe| in the|\.|$)/i.test(text)||/^\[\s*(?:no (?:visible |readable )?text|blank(?: page| image)?)\s*\][.!]?$/i.test(text))throw Object.assign(Error('No readable text was returned. Review the original page or try a clearer scan.'),{code:'OCR_NO_TEXT'});
+ if(isEmptyOcrReport(text))throw Object.assign(Error('No readable text was returned. Review the original page or try a clearer scan.'),{code:'OCR_NO_TEXT'});
  return text;
 }
 export async function imageFile(file:File){
