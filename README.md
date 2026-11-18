@@ -28,6 +28,8 @@ Settings includes appearance, voice preferences, JSON backup export/restore, and
 
 ## Documentation
 
+- [Complete Supabase SQL](schema.sql) creates the current workspace, private file/photo buckets, and account-specific policies. Run the whole file in Supabase SQL Editor; [verify RLS](supabase/verify-rls.sql) afterward.
+
 - [Deploy the AI Edge Function](docs/EDGE_AI_SETUP.md) connects hosted AI to provider secrets in Supabase.
 
 - [Supabase schema and email setup](docs/SUPABASE_SETUP.md) explains the active SQL and branded authentication email templates.

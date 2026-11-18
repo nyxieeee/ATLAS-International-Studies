@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {emptyWorkspace} from '../lib/workspace-types.ts';
 import {PGlite} from '@electric-sql/pglite';
 
 test('active Supabase SQL executes, reruns, and enforces account/storage isolation in PostgreSQL',async t=>{
@@ -31,7 +32,7 @@ test('active Supabase SQL executes, reruns, and enforces account/storage isolati
    await db.exec('alter table storage.objects enable row level security');
   });
   await t.test('schema and incremental migrations remain equivalent and rerunnable',async()=>{
-   for(const file of ['001_cloud_workspaces.sql','002_library_files.sql','003_profile_avatars.sql']){const sql=await readFile(new URL('../migrations/'+file,import.meta.url),'utf8');assert.ok(schema.includes(sql));await db.exec(sql)}
+   for(const file of ['001_cloud_workspaces.sql','002_library_files.sql','003_profile_avatars.sql','004_persistence_setup.sql']){const sql=await readFile(new URL('../migrations/'+file,import.meta.url),'utf8');assert.ok(schema.includes(sql));await db.exec(sql)}
    const bucket=(await db.query("select public,file_size_limit from storage.buckets where id='atlas-library-files'")).rows[0];assert.equal(bucket.public,false);assert.equal(Number(bucket.file_size_limit),10485760);
   });
   await t.test('owner snapshots work; another account and anonymous access are denied',async()=>{
@@ -50,6 +51,18 @@ test('active Supabase SQL executes, reruns, and enforces account/storage isolati
    await assert.rejects(asUser(a,tx=>tx.query("update public.atlas_workspaces set updated_at='2000-01-01' where user_id=$1",[a])),/permission denied/);
    await assert.rejects(asUser(a,tx=>tx.query('update public.atlas_workspaces set data=$1,revision=3 where user_id=$2',[[],a])),/check constraint/);
    await assert.rejects(asUser(a,tx=>tx.query('update public.atlas_workspaces set data=$1,revision=3 where user_id=$2',[{text:'x'.repeat(4000000)},a])),/check constraint/);
+  });
+  await t.test('all authored workspace fields round-trip and survive reapplying the full schema',async()=>{
+   const reference={id:'reference',title:'Saved source',authors:['Author'],year:2026,url:'https://www.un.org/',venue:'UN',type:'report',oa:true,provider:'direct',fetchedAt:'2026-11-18',folderId:'folder'};
+   const workspace={...emptyWorkspace(),folders:[{id:'folder',name:'Research'}],projects:[{id:'project',title:'Diplomacy',sources:[reference]}],selectedProject:'project',references:[reference],materials:[{id:'material',name:'scan.pdf',text:'Extracted text',warnings:[],ai:true,originalId:'file-hash',originalStatus:'synced'}],notes:[{id:'note',title:'Handwriting',content:'',kind:'handwriting',pages:2,paper:'lined',strokes:[{id:'stroke',points:[[12,14],[18,22]],width:2,color:'#000',tool:'pen'}]}],briefs:{project:{title:'Policy brief',analysis:'Saved analysis'}},evidence:{claim:[{id:'evidence',claim:'Claim',sourceId:'reference',projectId:'project'}]},aiSessions:[{id:'chat',title:'Conversation',task:'chat',messages:[{role:'user',content:'Question'},{role:'assistant',content:'Answer'}]}],practiceSets:[{id:'quiz',kind:'quiz',items:[{prompt:'Question',options:['A','B']}],answers:[1],grade:{score:1}},{id:'cards',kind:'flashcards',items:[{front:'Term',back:'Meaning'}],known:['card-1']}],progress:[1],turns:['Study turn'],dark:true,voiceSettings:{voice:'en-PH-JamesNeural',counterpart:'en-PH-RosaNeural',rate:1.25}};
+   await asUser(a,tx=>tx.query('update public.atlas_workspaces set data=$1,revision=3 where user_id=$2 and revision=2',[workspace,a]));
+   assert.deepEqual((await asUser(a,tx=>tx.query('select data from public.atlas_workspaces where user_id=$1',[a]))).rows[0].data,workspace);
+   await db.exec(schema);
+   assert.deepEqual((await asUser(a,tx=>tx.query('select data from public.atlas_workspaces where user_id=$1',[a]))).rows[0].data,workspace);
+   assert.equal((await asUser(b,tx=>tx.query('select data from public.atlas_workspaces where user_id=$1',[a]))).rows.length,0);
+   await db.exec("update storage.buckets set allowed_mime_types=array['image/jpeg'] where id='atlas-library-files'");await db.exec(schema);
+   const bucket=(await db.query("select allowed_mime_types from storage.buckets where id='atlas-library-files'")).rows[0];assert.ok(bucket.allowed_mime_types.includes('application/octet-stream'));assert.ok(bucket.allowed_mime_types.includes('application/pdf'));
+   assert.equal((await db.query("select relforcerowsecurity from pg_class where oid='public.atlas_workspaces'::regclass")).rows[0].relforcerowsecurity,true);
   });
   await t.test('restrictive guards defeat old broad policies without breaking unrelated buckets',async()=>{
    await db.exec("create policy legacy_broad_workspace on public.atlas_workspaces for all to authenticated using(true) with check(true); create policy legacy_broad_storage on storage.objects for all to public using(true) with check(true);");

@@ -1,11 +1,23 @@
--- ATLAS active Supabase schema (November 15, 2026).
--- Run this complete file in the Supabase SQL editor; it is safe to rerun.
--- Equivalent to migrations/001_cloud_workspaces.sql through 003_profile_avatars.sql.
--- Supabase Auth and Storage supply auth.users, auth.uid(), storage.buckets,
--- storage.objects and storage.foldername(). Do not run on plain PostgreSQL.
--- Existing proposal tables, if previously installed, are left untouched.
--- Notes, projects, references, folders, chats and practice are stored together
--- in each account's JSONB workspace; original binary files use private Storage.
+-- ATLAS complete Supabase schema - November 18, 2026.
+-- Run this entire file in Supabase SQL Editor as the project administrator.
+-- Safe to rerun: existing accounts, workspaces and uploaded objects are retained.
+-- Requires the Supabase-managed Auth and Storage schemas; not plain PostgreSQL.
+-- Includes migrations 001 through 004 in one transaction.
+--
+-- Everything authored in ATLAS is saved in atlas_workspaces.data:
+-- projects and source notes; folders; typed/handwritten notes and pages/strokes;
+-- policy briefs and linked evidence; uploaded-file metadata and extracted text;
+-- saved references/favorites; chat and practice conversations; generated quizzes,
+-- answers and results; flashcards/progress; theme and voice settings.
+--
+-- Actual uploaded files: private atlas-library-files bucket (10 MB per object).
+-- Custom profile pictures: private atlas-avatars bucket (1 MB per object).
+-- Account names and Google profile pictures: Supabase Auth user metadata.
+-- RLS restricts workspace rows and Storage paths to their signed-in owner.
+-- Server AI keys belong in Edge Function secrets, never in these tables.
+-- Old proposal tables are left untouched; the current app does not use them.
+--
+-- After applying, run supabase/verify-rls.sql for read-only installation checks.
 begin;
 
 -- ATLAS account workspace: matches lib/workspace-core.mjs and CloudWorkspace.
@@ -96,6 +108,7 @@ create policy atlas_files_account_guard on storage.objects as restrictive for al
 drop policy if exists atlas_files_no_overwrite on storage.objects;
 create policy atlas_files_no_overwrite on storage.objects as restrictive for update to public
  using (bucket_id <> 'atlas-library-files') with check (bucket_id <> 'atlas-library-files');
+
 -- Private profile photos. Google pictures are read from Auth metadata and
 -- do not need this bucket. Custom photos use <auth-user-uuid>/<random-id>.jpg.
 do $atlas_avatar_rls$
@@ -131,5 +144,35 @@ create policy atlas_avatars_account_guard on storage.objects as restrictive for 
 drop policy if exists atlas_avatars_no_overwrite on storage.objects;
 create policy atlas_avatars_no_overwrite on storage.objects as restrictive for update to public
  using(bucket_id<>'atlas-avatars') with check(bucket_id<>'atlas-avatars');
+
+-- Complete the existing ATLAS persistence setup without replacing saved data.
+-- Keep these grants scoped to the app's objects; do not change managed Auth/Storage grants.
+grant usage on schema public to authenticated;
+alter table public.atlas_workspaces enable row level security;
+alter table public.atlas_workspaces force row level security;
+
+-- The app uploads originals as application/octet-stream, retaining the original
+-- file type in the workspace. Reset incompatible restrictions from older setups.
+update storage.buckets
+ set public = false, file_size_limit = 10485760,
+     allowed_mime_types = array[
+       'application/octet-stream', 'application/pdf',
+       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+       'text/plain', 'text/markdown', 'text/csv',
+       'image/png', 'image/jpeg', 'image/webp'
+     ]
+ where id = 'atlas-library-files';
+
+comment on table public.atlas_workspaces is
+ 'Private account workspace. Includes projects, folders, sources, notes and handwriting, briefs, evidence links, Library metadata and extracted text, AI conversations, quizzes and answers/results, flashcards and study progress, theme and voice settings. Original files live in private Storage.';
+comment on column public.atlas_workspaces.user_id is
+ 'Account owner; references Supabase Auth and is protected by owner-only RLS.';
+comment on column public.atlas_workspaces.data is
+ 'Workspace JSON as used by ATLAS. Supports all current Workspace fields, including voiceSettings. Maximum 4,000,000 bytes; binary originals are stored separately.';
+comment on column public.atlas_workspaces.revision is
+ 'Optimistic concurrency version; starts at 1 and must increase by exactly 1 on update.';
+comment on column public.atlas_workspaces.updated_at is
+ 'Server-controlled timestamp; clients cannot insert or update this column.';
 
 commit;

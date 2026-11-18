@@ -1,4 +1,5 @@
 ﻿'use client';
+import {normalizeVoicePreferences} from './voice-preferences.mjs';
 import {speechChunks,VOICES} from './ai-core.mjs';
 export type Speaker='coach'|'counterpart';
 type SpeechState={owner:string;status:string;error:string;engine:string};
@@ -9,7 +10,7 @@ let current:SpeechState={owner:'',status:'idle',error:'',engine:'edge'};
 function emit(){window.dispatchEvent(new CustomEvent('atlas-speech',{detail:current}))}
 function sharedAudio(){if(!audio){audio=new Audio();audio.preload='auto'}return audio}
 export function speechState(){return current}
-export function voicePreferences(){try{const p=JSON.parse(localStorage.getItem('atlas-voice')||'{}');return {voice:VOICES.some(([id])=>id===p.voice)?p.voice:VOICES[0][0],counterpart:VOICES.some(([id])=>id===p.counterpart)?p.counterpart:VOICES[1][0],rate:[.75,1,1.25,1.5].includes(p.rate)?p.rate:1}}catch{return {voice:VOICES[0][0],counterpart:VOICES[1][0],rate:1}}}
+export function voicePreferences(){try{return normalizeVoicePreferences(JSON.parse(localStorage.getItem('atlas-voice')||'{}'))}catch{return normalizeVoicePreferences(null)}}
 export function saveVoicePreferences(voice:string,rate:number,counterpart=voicePreferences().counterpart){try{localStorage.setItem('atlas-voice',JSON.stringify({voice,counterpart,rate}))}catch{}window.dispatchEvent(new Event('atlas-voice-change'));if(audio)audio.playbackRate=rate}
 /** Synchronous gesture-time priming, matching France Notes' shared-element playback. */
 export function unlockSpeech(){const player=sharedAudio();if(!player.src||player.src===SILENT_WAV||player.paused){player.src=SILENT_WAV;void player.play().then(()=>{if(player.src===SILENT_WAV)player.pause()}).catch(()=>{})}if('speechSynthesis' in window){const primer=new SpeechSynthesisUtterance('');primer.volume=0;window.speechSynthesis.speak(primer)}}

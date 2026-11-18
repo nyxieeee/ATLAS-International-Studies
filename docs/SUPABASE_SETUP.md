@@ -2,7 +2,7 @@
 
 ## Database and private files
 
-Run the complete root `schema.sql` in your Supabase project's SQL editor. This is the active schema, equivalent to `migrations/001_cloud_workspaces.sql` followed by `002_library_files.sql` and `003_profile_avatars.sql`. Choose either the combined file or the incremental files; both are safe to rerun and retain existing workspace rows and original files.
+Run the complete root `schema.sql` in your Supabase project's SQL editor. This is the active schema, equivalent to `migrations/001_cloud_workspaces.sql` followed by `002_library_files.sql`, `003_profile_avatars.sql` and `004_persistence_setup.sql`. Choose either the combined file or the incremental files; both are safe to rerun and retain existing workspace rows and original files. For a complete setup, run the whole `schema.sql` file once; no separate per-feature tables are needed.
 
 The former schema was a proposal for normalized research/content tables. Those tables are not used by the current app. The replacement does not drop them if they were previously installed.
 
@@ -11,11 +11,11 @@ The active integration uses:
 | Object | Purpose |
 | --- | --- |
 | `auth.users` | Supabase-managed accounts; email and Google authentication |
-| `public.atlas_workspaces` | One private JSONB workspace per account, containing projects, folders, notes, saved references, conversations and practice |
+| `public.atlas_workspaces` | One private JSONB workspace per account, containing projects, folders, typed/handwritten notes, briefs/evidence, uploaded-file metadata and extracted text, saved references, AI conversations, quizzes/results, flashcards/progress, theme and voice preferences |
 | `atlas-library-files` bucket | Private original files, at most 10 MB, stored at `<user UUID>/<file hash>` |
 | `atlas-avatars` bucket | Private custom profile photos, at most 1 MB after resizing, stored under the user UUID |
 
-Workspace snapshots have a 4,000,000-byte JSON limit. Updates must increment `revision` by one, and the app also filters by the prior revision to detect conflicts. Timestamps are server-controlled. RLS protects account ownership; restrictive guards prevent older broad policies from exposing ATLAS records or files. Stored originals cannot be overwritten: changed files get a new content hash.
+Workspace snapshots have a 4,000,000-byte JSON limit. Updates must increment `revision` by one, and the app also filters by the prior revision to detect conflicts. Timestamps are server-controlled. Workspace RLS is enabled and forced. RLS protects account ownership; restrictive guards prevent older broad policies from exposing ATLAS records or files. Stored originals cannot be overwritten: changed files get a new content hash.
 
 Storage API permissions are provided by Supabase. The migration changes policies only for the ATLAS bucket and does not grant anonymous file access or make the bucket public. Authentication metadata already stores the signup display name; no separate profiles table or signup trigger is required by the app.
 
@@ -71,3 +71,23 @@ After installation, run supabase/verify-rls.sql for read-only checks of both RLS
 The header displays a custom account photo first, otherwise the Google/Auth profile picture, then account initials. Signed-out users keep the account icon. In Settings, signed-in users can choose JPG/PNG/WebP files up to 5 MB; the browser crops/resizes them to a 256-pixel JPEG before upload. Only the object path is stored in Auth metadata, not image data or a long-lived public URL. Private image URLs expire after an hour and refresh while the app is open. Reset restores the account photo or initials.
 
 For an existing installation, run `migrations/003_profile_avatars.sql` (or rerun the combined schema) before uploading a custom photo. Google photos do not need the avatar bucket. Avatar RLS is tested alongside workspace/file isolation; hosted upload and Google identity checks still require your connected project.
+
+## What saves where
+
+| App feature | Saved location |
+| --- | --- |
+| Projects, project sources, source notes, policy briefs, evidence links | `atlas_workspaces.data.projects`, `briefs`, `evidence` |
+| Typed notes, handwriting, pages, strokes and paper style | `atlas_workspaces.data.notes` |
+| Library folders, saved references, favorites and extracted/OCR text | `atlas_workspaces.data.folders`, `references`, `materials` |
+| Original PDFs, images, DOCX, PPTX and text files | Private `atlas-library-files/<user ID>/<checksum>` objects; metadata in `materials` |
+| AI Chat and study/recitation/roleplay transcripts | `atlas_workspaces.data.aiSessions` |
+| Generated quizzes, submitted answers/results, flashcards and progress | `atlas_workspaces.data.practiceSets`, `progress`, `turns` |
+| Theme and neural voice/speed preferences | `atlas_workspaces.data.dark`, `voiceSettings` |
+| Account name and Google photo | Supabase Auth user metadata |
+| Custom profile photo | Private `atlas-avatars` object; path in Auth metadata |
+
+The app automatically saves edited snapshots while signed in. Applying SQL creates the database/storage permissions; it does not upload a browser device copy by itself. Check the app status for successful cloud sync. File originals have a separate sync status; a retained device copy alone does not mean a successful cloud upload.
+
+For installations that already have migrations 001-003, apply `004_persistence_setup.sql` or rerun the full schema. It preserves data, forces workspace RLS and resets old library MIME restrictions to allow the application/octet-stream uploads used by ATLAS. Deploy the accompanying app changes to sync voice preferences. Existing backups without voice settings load supported defaults.
+
+API provider secrets are separate from the database schema. Keep them in Edge Function secrets; SQL does not configure Google sign-in, email delivery or AI providers.
