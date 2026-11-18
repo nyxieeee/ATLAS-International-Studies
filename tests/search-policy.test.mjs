@@ -12,3 +12,13 @@ test('search validates source selection, pagination and date ranges',()=>{for(co
 import {authenticatedBase as base,authFetch as fetch} from './helpers/live-account.mjs';
 test('directory endpoint exposes the actual approved policy',{skip:!base},async()=>{const r=await fetch(base+'/api/search?directory=true');assert.equal(r.status,200);const j=await r.json();assert.equal(j.sources.length,APPROVED_SOURCES.length);assert.equal(typeof j.webConfigured,'boolean')});
 test('search endpoint rejects a client-supplied unapproved source',{skip:!base},async()=>{const r=await fetch(base+'/api/search?q=climate&source=evil');assert.equal(r.status,400)});
+
+test('expanded directory includes open publishers and Philippine research with exact domain rules',()=>{
+ assert.equal(new Set(APPROVED_SOURCES.map(s=>s.id)).size,APPROVED_SOURCES.length);assert.ok(APPROVED_SOURCES.length>=70);
+ for(const [url,id]of [['https://www.pids.gov.ph/publication/report','pids'],['https://journals.plos.org/plosone/article','plos'],['https://www.adb.org/publications/report','adb'],['https://www.aljazeera.com/news/article','aljazeera']])assert.equal(approvedUrl(url).source.id,id);
+ assert.ok(approvedUrl('https://www.gmanetwork.com/news/story'));assert.equal(approvedUrl('https://www.gmanetwork.com/entertainment/story'),null);assert.equal(approvedUrl('https://pids.gov.ph.evil.example/report'),null);
+});
+test('free access filtering keeps OA and public sources while excluding mixed or explicitly restricted articles',()=>{
+ const results=[{title:'Climate',url:'https://academic.oup.com/closed'},{title:'Climate',url:'https://academic.oup.com/open',oa:true},{title:'Climate',url:'https://www.pids.gov.ph/report'},{title:'Climate',url:'https://www.theguardian.com/restricted',snippet:'Subscribe to continue reading'}];
+ const free=rankAndFilter(results,{query:'climate',access:'free'});assert.equal(free.length,2);assert.ok(free.some(r=>r.oa));assert.ok(free.some(r=>r.access==='public'));assert.equal(rankAndFilter(results,{query:'climate',access:'all'}).length,4);assert.ok(validateSearch(new URLSearchParams('q=climate&access=bypass')));
+});

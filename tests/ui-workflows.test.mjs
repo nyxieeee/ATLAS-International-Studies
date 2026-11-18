@@ -77,12 +77,12 @@ test('inline AI drops late responses after content changes and allows a new requ
 test('search pagination retains applied query and filters until the next search',async()=>{
  const requests=[];globalThis.fetch=async url=>{requests.push(new URL(url,'http://localhost'));return json({data:[],meta:{page:Number(requests.at(-1).searchParams.get('page')),hasNext:true,providers:[],returnedTotal:0}})};
  await render(Search,{initialQuery:'climate finance',onSave(){},onOpen(){},onLibrary(){},savedIds:[],projectSelector:null});
- const select=host.querySelector('[aria-label="Source category"]');
+ const select=host.querySelector('[aria-label="Source category"]');const accessSelect=host.querySelector('[aria-label="Article access"]');assert.equal(requests[0].searchParams.get('access'),'free');await act(()=>{accessSelect.value='all';accessSelect.dispatchEvent(new window.Event('change',{bubbles:true}))});
  await act(()=>{select.value='news';select.dispatchEvent(new window.Event('change',{bubbles:true}))});
  await click(button('Next'));
- assert.equal(requests.at(-1).searchParams.get('category'),'all');assert.equal(requests.at(-1).searchParams.get('page'),'2');
+ assert.equal(requests.at(-1).searchParams.get('category'),'all');assert.equal(requests.at(-1).searchParams.get('page'),'2');assert.equal(requests.at(-1).searchParams.get('access'),'free');
  await act(()=>host.querySelector('form').dispatchEvent(new window.Event('submit',{bubbles:true,cancelable:true})));
- assert.equal(requests.at(-1).searchParams.get('category'),'news');assert.equal(requests.at(-1).searchParams.get('page'),'1');
+ assert.equal(requests.at(-1).searchParams.get('category'),'news');assert.equal(requests.at(-1).searchParams.get('page'),'1');assert.equal(requests.at(-1).searchParams.get('access'),'all');
 });
 
 test('AI session switching cancels promptly and ignores late completions',async()=>{

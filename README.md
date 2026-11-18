@@ -28,6 +28,8 @@ Settings includes appearance, voice preferences, JSON backup export/restore, and
 
 ## Documentation
 
+- [Search sources and access](docs/SEARCH_SOURCES.md) describes the approved directory, free-source defaults, open-access metadata and live catalog/feed coverage.
+
 - [Complete Supabase SQL](schema.sql) creates the current workspace, private file/photo buckets, and account-specific policies. Run the whole file in Supabase SQL Editor; [verify RLS](supabase/verify-rls.sql) afterward.
 
 - [Deploy the AI Edge Function](docs/EDGE_AI_SETUP.md) connects hosted AI to provider secrets in Supabase.
