@@ -10,7 +10,7 @@ export const emptyWorkspace=():Workspace=>({voiceSettings:normalizeVoicePreferen
 
 
 
-export type AiSession={noteId?:string;materialIds?:string[];materialNames?:string[];sourceOnly?:boolean;id:string;title:string;task:string;context:string;messages:{role:'user'|'assistant';content:string;model?:string;provider?:string;citations?:{title:string;url:string}[]}[];updatedAt:string};
+export type AiSession={activity?:string;noteId?:string;materialIds?:string[];materialNames?:string[];sourceOnly?:boolean;id:string;title:string;task:string;context:string;messages:{role:'user'|'assistant';content:string;model?:string;provider?:string;citations?:{title:string;url:string}[]}[];updatedAt:string};
 
 
 export type StudyMaterial={sourceUrl?:string;folderId?:string;originalId?:string;checksum?:string;originalStatus?:'local'|'synced';id:string;name:string;size:number;type:string;text:string;warnings:string[];ai:boolean;createdAt:string};

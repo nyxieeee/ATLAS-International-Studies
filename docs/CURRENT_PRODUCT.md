@@ -212,3 +212,9 @@ The guest-entry behavior is removed. Root requests require server-verified Supab
 ## Current OCR routing ? November 18, 2026
 
 This supersedes the OCR provider notes above: images and scanned PDF pages now use Gemini gemini-3.5-flash-lite with GEMINI_API_KEY in Supabase Edge secrets. Text tasks remain on Groq Qwen and grounded discovery on GPT-OSS 120B. Existing deployments must redeploy atlas-ai and the app; no database migration is needed. See AI_SETUP.md and EDGE_AI_SETUP.md.
+
+## Dedicated study workflows - November 18, 2026
+
+Library quiz, flashcard, summary, reviewer, presentation and recitation actions now use explicit practice destinations rather than a generic study fallback. Quiz and flashcard builders show only their own saved set types. Practice navigation persists a dedicated activity route.
+
+Summaries, reviewers, slides, scenarios and research guides render as generated documents without a chat response composer. Guided study, recitation and diplomacy/MUN retain interactive turns. Each activity has scoped saved history; AI Chat remains a separate page with chat-only sessions. Existing transcripts and quiz results are preserved. New document sessions store an optional activity label; old summary/slide titles are recognized for continuity. No database migration or AI Edge Function change is required.

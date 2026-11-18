@@ -1,5 +1,5 @@
 import {loadControls} from './helpers/controls.mjs';
-import {resolveRoute} from '../lib/navigation.mjs';
+import {resolveRoute,practiceDestination} from '../lib/navigation.mjs';
 import {test,afterEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -15,6 +15,7 @@ const require=createRequire(import.meta.url);
 const React=await import('react');const {act}=React;const {createRoot}=await import('react-dom/client');
 async function component(name){
  let source=await readFile(new URL('../components/'+name+'.tsx',import.meta.url),'utf8');
+ if(name==='PracticeHub')source=source.replace("import AiStudio from './AiStudio';",'const AiStudio=globalThis.__practiceChildren.Studio;').replace("import PracticeStudio from './PracticeStudio';",'const PracticeStudio=globalThis.__practiceChildren.Practice;');
  const controls=await loadControls();
  source=source.replace("from './LoadingStatus'",'from '+JSON.stringify(controls.LoadingStatus.url));
  source=source.replace("from './StudyResponse'",'from '+JSON.stringify(controls.StudyResponse.url));
@@ -22,12 +23,14 @@ async function component(name){
  source=source.replace(/import \{([^}]+)\} from 'lucide-react';/g,(_,names)=>'const '+names.split(',').map(n=>n.trim()+'=()=>null').join(',')+';');
  source=source.replace(/import StudyMaterials from '.\/StudyMaterials';/, 'const StudyMaterials=()=>null;').replace(/import AiAssist from '.\/AiAssist';/,'const AiAssist=()=>null;').replace(/import \{[^}]+\} from '.\/SpeechControls';/,'const ReadAloud=()=>null,SpeechPlaybackStatus=()=>null;').replace(/import \{[^}]+\} from '@\/lib\/speech';/,'const stopSpeech=()=>{},unlockSpeech=()=>{},speakText=()=>{};');
  source=source.replace(/import FolderBrowser,\{FolderSelect,type FolderActions\} from '.\/FolderBrowser';/, 'const FolderBrowser=()=>null;const FolderSelect=()=>null;').replace(/import Notepad from '.\/Notepad';/, 'const Notepad=({initialProjectId})=><p>Notes scope: {initialProjectId||"unfiled"}</p>;').replace(/import PolicyEvidence from '.\/PolicyEvidence';/, 'const PolicyEvidence=()=>null;');
+ source=source.replace(/import \{downloadOriginal,syncOriginal,retainOriginal,getFileScope\} from '@\/lib\/library-files';/, 'const downloadOriginal=()=>{},syncOriginal=()=>{},retainOriginal=()=>{},getFileScope=()=>"fixture";');
  source=source.replace(/from '@\/([^']+)'/g,(_,p)=>'from '+JSON.stringify(new URL('../'+p+(p==='lib/workspace-types'?'.ts':''),import.meta.url).href));
  let js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText;
  js=js.replace(/from ["'](react(?:\/jsx-runtime)?)["']/g,(_,p)=>'from '+JSON.stringify(pathToFileURL(require.resolve(p)).href));
  return (await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'))).default;
 }
-const Chat=await component('AiChat'),Assist=await component('AiAssist'),Search=await component('TrustedSearch'),Studio=await component('AiStudio'),Practice=await component('PracticeStudio'),Folders=await component('FolderBrowser'),ProjectDesk=await component('ProjectDesk'),Restore=await component('RestoreWorkspace'),Sidebar=await component('WorkspaceSidebar'),Handwriting=await component('HandwritingEditor');
+const Chat=await component('AiChat'),Assist=await component('AiAssist'),Search=await component('TrustedSearch'),Studio=await component('AiStudio'),Practice=await component('PracticeStudio'),Folders=await component('FolderBrowser'),ProjectDesk=await component('ProjectDesk'),Restore=await component('RestoreWorkspace'),Sidebar=await component('WorkspaceSidebar'),Handwriting=await component('HandwritingEditor'),Library=await component('UnifiedLibrary');
+globalThis.__practiceChildren={Studio,Practice};const Hub=await component('PracticeHub');delete globalThis.__practiceChildren;
 let root,host;const originalFetch=globalThis.fetch;
 afterEach(async()=>{if(root)await act(()=>root.unmount());host?.remove();root=null;globalThis.fetch=originalFetch});
 async function render(Component,props){if(!root){host=document.createElement('div');document.body.append(host);root=createRoot(host)}await act(()=>root.render(React.createElement(Component,props)))}
@@ -184,4 +187,26 @@ test('handwriting uses separate sheets, adds pages at the bottom and preserves g
  const pointer=async(type,x,y)=>act(()=>{const event=new window.MouseEvent(type,{bubbles:true,button:0,clientX:x,clientY:y});Object.defineProperty(event,'pointerId',{value:1});sheet.dispatchEvent(event)});
  await pointer('pointerdown',200,100);await pointer('pointermove',250,150);await pointer('pointerup',250,150);assert.deepEqual(saved.at(-1).points,[[200,1514],[250,1564]]);assert.equal(saved.length,3);
  await click(host.querySelector('[aria-label="Undo stroke"]'));assert.equal(saved.length,2);await click(host.querySelector('[aria-label="Redo stroke"]'));assert.equal(saved.length,3);
+});
+
+test('Library shortcuts launch dedicated quiz, reviewer, recitation and flashcard destinations',async()=>{
+ const launches=[],noop=()=>{};await render(Library,{folders:[],folderActions:{onCreate:noop,onRename:noop,onDelete:noop},references:[],onReferencesChange:noop,onRemoveReference:noop,materials:[{id:'reading',name:'Lecture.pdf',text:'Readable source text',warnings:[],createdAt:'2026-11-18',ai:false}],onMaterialsChange:noop,projects:[],onAddToProject:noop,onOpen:noop,onStudy:ids=>launches.push({ids,destination:practiceDestination('study')}),onGenerate:(ids,activity)=>launches.push({ids,destination:practiceDestination(activity)}),onQuiz:ids=>launches.push({ids,destination:practiceDestination('quiz')}),onSearch:noop,saveStatus:'Saved'});
+ for(const label of ['Generate quiz','Make reviewer','Summarize','Recitation practice','Create flashcards','Make slides'])await click(button(label));
+ assert.deepEqual(launches.map(item=>item.destination),['quizzes','reviewer','summary','recitation','flashcards','presentation']);assert.ok(launches.every(item=>resolveRoute(item.destination).page==='practice'));assert.ok(launches.every(item=>item.ids[0]==='reading'));
+});
+
+test('fixed quiz and flashcard pages show their own saved sets',async()=>{
+ const noop=()=>{},sets=[{id:'quiz',kind:'quiz',title:'Saved quiz',items:[],materialNames:[],answers:[],known:[]},{id:'cards',kind:'flashcards',title:'Saved cards',items:[],materialNames:[],answers:[],known:[]}];const props={sets,onChange:noop,materials:[],onMaterialsChange:noop,notes:[],fixedKind:true};
+ await render(Practice,{...props,initialKind:'quiz'});assert.equal(host.querySelector('h1').textContent,'Quizzes');assert.ok(host.textContent.includes('Saved quiz'));assert.ok(!host.textContent.includes('Saved cards'));assert.equal(host.querySelector('[aria-label="Your response to AI"]'),null);
+ await act(()=>root.unmount());root=null;host.remove();await render(Practice,{...props,initialKind:'flashcards'});assert.equal(host.querySelector('h1').textContent,'Flashcards');assert.ok(host.textContent.includes('Saved cards'));assert.ok(!host.textContent.includes('Saved quiz'));
+});
+
+test('reviewers render as documents without a chat composer and isolate saved history',async()=>{
+ const noop=()=>{},sessions=[{id:'reviewer',title:'Reviewer document',task:'reviewer',activity:'reviewer',messages:[{role:'user',content:'Create my reviewer'},{role:'assistant',content:'## Key concepts\nSovereignty and cooperation.'}],updatedAt:'2026-11-18'},{id:'chat',title:'Private chat history',task:'chat',messages:[],updatedAt:'2026-11-18'},{id:'recitation',title:'Separate recitation',task:'recitation',messages:[],updatedAt:'2026-11-18'}];
+ await render(Studio,{sessions,onChange:noop,materials:[],onMaterialsChange:noop,notes:[],onSaveNote:noop,initialPrompt:'',initialTask:'reviewer',fixedTask:true,outputKind:'reviewer'});assert.ok(!host.textContent.includes('Private chat history'));assert.ok(!host.textContent.includes('Separate recitation'));await click(button('Reviewer document'));assert.ok(host.querySelector('.study-document'));assert.match(host.textContent,/Sovereignty and cooperation/);assert.equal(host.querySelector('.ai-composer'),null);assert.ok(!host.textContent.includes('Create my reviewer'));
+});
+
+test('practice navigation opens dedicated screens and never mounts the Chat composer',async()=>{
+ const noop=()=>{};function Harness(){const [destination,setDestination]=React.useState('practice');const route=resolveRoute(destination);return React.createElement(Hub,{key:destination,sessions:[],onSessions:noop,sets:[],onSets:noop,notes:[],materials:[],onMaterials:noop,onSaveNote:noop,onNavigate:setDestination,initialActivity:route.activity,initialTask:route.task,initialKind:route.kind,outputKind:route.outputKind})}
+ await render(Harness,{});for(const [label,heading]of [['Quizzes','Quizzes'],['Flashcards','Flashcards'],['Recitation','Recitation practice'],['Scenarios','Scenario builder'],['Reviewers','Study reviewer']]){await click(button(label));assert.equal(host.querySelector('h1').textContent,heading);assert.equal(host.querySelector('#chat-message'),null)}
 });
