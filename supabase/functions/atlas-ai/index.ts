@@ -1,9 +1,31 @@
 // Deploy this complete file as the Supabase Edge Function named "atlas-ai".
-// Secrets: MISTRAL_API_KEY and GROQ_API_KEY. No provider keys go to the browser.
+// Secrets: MISTRAL_API_KEY, GEMINI_API_KEY and optional GROQ_API_KEY. No provider keys go to the browser.
 const models={text:'ministral-8b-latest',search:'openai/gpt-oss-120b',ocr:'ministral-8b-latest'};
 const cors={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization,apikey,content-type,x-client-info','Access-Control-Allow-Methods':'POST,OPTIONS'};
 function reply(body:unknown,status=200,extra:Record<string,string>={}){return Response.json(body,{status,headers:{...cors,'Cache-Control':'no-store',...extra}})}
 function error(code:string,message:string,status:number){return reply({error:{code,message}},status)}
+
+// Keep these two pure adapters in sync with the self-contained atlas-ai function.
+function geminiImageBody(payload:any){
+ const system:any[]=[],contents:any[]=[];
+ for(const message of payload.messages){
+  const parts=typeof message.content==='string'?[{text:message.content}]:message.content.map((part:any)=>{
+   if(part.type==='text')return {text:part.text};
+   const image=typeof part.image_url==='string'?part.image_url:part.image_url?.url;
+   const match=/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/.exec(image||'');
+   if(!match)throw Error('Use a supported embedded image.');
+   return {inlineData:{mimeType:match[1],data:match[2]}};
+  });
+  if(message.role==='system')system.push(...parts.filter((part:any)=>typeof part.text==='string'));
+  else contents.push({role:message.role==='assistant'?'model':'user',parts});
+ }
+ return {contents,...(system.length?{systemInstruction:{parts:system}}:{}),generationConfig:{temperature:payload.temperature??.1,maxOutputTokens:Math.min(7000,Math.max(64,payload.max_completion_tokens??payload.max_tokens??4000)),responseMimeType:['json_object','json_schema'].includes(payload.response_format?.type)?'application/json':'text/plain'}};
+}
+function geminiImageResult(data:any){
+ const candidate=data.candidates?.[0];
+ const text=(candidate?.content?.parts||[]).filter((part:any)=>!part.thought&&typeof part.text==='string').map((part:any)=>part.text).join('');
+ return {choices:[{finish_reason:candidate?.finishReason==='STOP'?'stop':candidate?.finishReason==='MAX_TOKENS'?'length':'content_filter',message:{role:'assistant',content:text}}]};
+}
 
 export async function handleAtlasAi(request:Request){
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:cors});
@@ -41,15 +63,22 @@ export async function handleAtlasAi(request:Request){
  if(characters>160000||images>1||(mode==='ocr'&&images!==1))return error('ATLAS_EDGE_INPUT','The AI request exceeds the supported size.',400);
  if(payload.tools&&mode!=='search')return error('ATLAS_EDGE_INPUT','Search tools are not available for this task.',400);
  const key=Deno.env.get(mode==='search'?'GROQ_API_KEY':'MISTRAL_API_KEY');
- if(!key)return error('ATLAS_EDGE_SETUP','AI is not set up yet. Please ask the app administrator to finish setup.',503);
+ if(!key&&!Deno.env.get('GEMINI_API_KEY'))return error('ATLAS_EDGE_SETUP','AI is not set up yet. Please ask the app administrator to finish setup.',503);
  const requested=payload.max_completion_tokens??payload.max_tokens??2000;
  const maxTokens=Math.max(64,Math.min(mode==='search'?2500:mode==='ocr'?4000:7000,Number.isFinite(requested)?Math.floor(requested):2000));
  const body={model:models[mode],messages:mode==='ocr'?payload.messages.map((m:any)=>({...m,content:Array.isArray(m.content)?m.content.map((p:any)=>p.type==='image_url'?{type:'image_url',image_url:typeof p.image_url==='string'?{url:p.image_url}:p.image_url}:p):m.content})):payload.messages,temperature:typeof payload.temperature==='number'?Math.max(0,Math.min(1,payload.temperature)):.3,
   ...(mode==='search'?{max_completion_tokens:maxTokens,include_reasoning:false,reasoning_effort:'low'}:{max_tokens:maxTokens}),
-  ...(mode==='search'?{tools:[{type:'browser_search'}],tool_choice:'required'}:payload.response_format?.type==='json_object'?{response_format:{type:'json_object'}}:{}),
+  ...(mode==='search'?{tools:[{type:'browser_search'}],tool_choice:'required'}:['json_object','json_schema'].includes(payload.response_format?.type)?{response_format:payload.response_format}:{}),
  };
  try{
-  const upstream=await fetch(mode==='search'?'https://api.groq.com/openai/v1/chat/completions':'https://api.mistral.ai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify(body),signal:AbortSignal.any([request.signal,AbortSignal.timeout(50000)])});
+  if(mode==='search'&&Deno.env.get('GEMINI_API_KEY')){const searchBody:any=geminiImageBody(body);delete searchBody.generationConfig.responseMimeType;const search=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':Deno.env.get('GEMINI_API_KEY')!},body:JSON.stringify({...searchBody,tools:[{googleSearch:{}}]}),signal:AbortSignal.any([request.signal,AbortSignal.timeout(35000)])}).catch(()=>null);if(search?.ok){const data=await search.json();return reply({...geminiImageResult(data),provider:'gemini',model:'gemini-2.5-flash-lite',grounding:data.candidates?.[0]?.groundingMetadata?.groundingChunks||[]})}}
+  let upstream=key?await fetch(mode==='search'?'https://api.groq.com/openai/v1/chat/completions':'https://api.mistral.ai/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify(body),signal:AbortSignal.any([request.signal,AbortSignal.timeout(45000)])}).catch(error=>{if(request.signal.aborted)throw error;return new Response(null,{status:502})}):new Response(null,{status:503});
+  let provider=mode==='search'?'groq':'mistral',model=models[mode];
+  const fallbackKey=Deno.env.get('GEMINI_API_KEY');
+  if(mode!=='search'&&fallbackKey&&[401,403,429,500,502,503,504].includes(upstream.status)){
+   const fallback=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':fallbackKey},body:JSON.stringify(geminiImageBody(body)),signal:AbortSignal.any([request.signal,AbortSignal.timeout(45000)])}).catch(()=>null);
+   if(fallback?.ok){upstream=Response.json(geminiImageResult(await fallback.json()));provider='gemini';model='gemini-2.5-flash-lite'}
+  }
   const data=await upstream.json().catch(()=>({}));
   if(upstream.status===429){
    const message=String(data.error?.message||data.message||''),usage=/daily|per day|insufficient_quota|credits? exhausted|spending limit/i.test(message),rate=!usage&&/per minute|rate.limit/i.test(message);
@@ -59,7 +88,7 @@ export async function handleAtlasAi(request:Request){
   if(!upstream.ok)return error('ATLAS_EDGE_PROVIDER','The AI provider could not complete this request. Please contact the app administrator.',upstream.status>=500?502:503);
   const choice=data.choices?.[0];if(!choice||typeof choice.message?.content!=='string')return error('ATLAS_EDGE_PROVIDER','The AI provider returned no usable response.',502);
   // Keep executed search records for server-side citation validation, but no reasoning or credentials.
-  return reply({choices:[{finish_reason:choice.finish_reason,message:{role:'assistant',content:choice.message.content,...(mode==='search'&&Array.isArray(choice.message.executed_tools)?{executed_tools:choice.message.executed_tools}:{})}}]});
+  return reply({provider,model,choices:[{finish_reason:choice.finish_reason,message:{role:'assistant',content:choice.message.content,...(mode==='search'&&Array.isArray(choice.message.executed_tools)?{executed_tools:choice.message.executed_tools}:{})}}]});
  }catch{return error('ATLAS_EDGE_PROVIDER','The AI provider is temporarily unavailable. Please retry.',502)}
 }
 

@@ -34,9 +34,9 @@ async function handlePOST(req:NextRequest){
  active++;try{
  let output='';const citations:any[]=[];
   const messages=body.task==='ocr'?[{role:'user',content:[{type:'text',text:'Transcribe the supplied image.'},{type:'image_url',image_url:body.image}]}]:body.messages;
-  const j=await generateCompletion({model,messages:[{role:'system',content:system},...messages],temperature:body.task==='ocr'?.1:.5,max_tokens:body.task==='reviewer'?5000:body.task==='ocr'?4000:1400},AbortSignal.timeout(55000));
+  const j=await generateCompletion({model,messages:[{role:'system',content:system},...messages],temperature:body.task==='ocr'?.1:.5,max_tokens:body.task==='reviewer'?7000:body.task==='ocr'?4096:4000},AbortSignal.timeout(55000));
   output=j.choices?.[0]?.message?.content||'';
- if(typeof output!=='string'||!output.trim())throw Error('empty');return NextResponse.json({text:output.replace(/<think>[\s\S]*?<\/think>/gi,'').trim(),provider:route.provider,model,citations,generatedAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
+ if(typeof output!=='string'||!output.trim())throw Error('empty');return NextResponse.json({text:output.replace(/<think>[\s\S]*?<\/think>/gi,'').trim(),provider:j.provider||route.provider,model:j.model||model,citations,generatedAt:new Date().toISOString()},{headers:{'Cache-Control':'no-store'}});
  }catch(e){if(e instanceof AiServiceError){const limit=e as AiServiceError & {kind?:string;retryAfterMs?:number|null};return NextResponse.json({error:e.message,kind:limit.kind,retryAfterMs:limit.retryAfterMs},{status:e.status,headers:typeof limit.retryAfterMs==='number'?{'Retry-After':String(Math.max(1,Math.ceil(limit.retryAfterMs/1000)))}:{}})}return NextResponse.json({error:'The AI provider could not complete this request. Check the configured model, API key, provider allowance, and connection, then retry. Your input has not been replaced by a generated fallback.'},{status:502})}finally{active--}
 }
 

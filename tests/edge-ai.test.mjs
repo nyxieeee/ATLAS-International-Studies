@@ -12,6 +12,17 @@ afterEach(()=>{globalThis.fetch=original;env={SUPABASE_URL:'https://fixture.supa
 const request=(mode,payload)=>new Request('https://fixture.supabase.co/functions/v1/atlas-ai',{method:'POST',headers:{authorization:'Bearer user-jwt',apikey:'public-key','content-type':'application/json'},body:JSON.stringify({mode,payload})});
 const text={messages:[{role:'user',content:'Hello'}]};
 const answer=()=>Response.json({choices:[{finish_reason:'stop',message:{content:'A response',reasoning:'Hidden reasoning',executed_tools:[{name:'browser.search',search_results:{results:[]}}]}}]});
+
+test('Edge falls back to Gemini on a Mistral throttle with accurate provenance',async()=>{
+ env.GEMINI_API_KEY='fallback-secret';let providers=0;
+ globalThis.fetch=async(url,options)=>{if(String(url).includes('/auth/v1/user'))return Response.json({id:'signed-user'});providers++;if(String(url).includes('api.mistral.ai'))return Response.json({message:'Rate limit exceeded'},{status:429});assert.equal(options.headers['x-goog-api-key'],'fallback-secret');assert.equal(JSON.parse(options.body).generationConfig.responseMimeType,'application/json');return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:'{"items":[]}'}]}}]})};
+ const result=await handleAtlasAi(request('text',{...text,response_format:{type:'json_object'}}));const body=await result.json();assert.equal(result.status,200);assert.equal(providers,2);assert.equal(body.provider,'gemini');assert.equal(body.model,'gemini-2.5-flash-lite');assert.ok(!JSON.stringify(body).includes('fallback-secret'));
+});
+
+test('Edge Gemini search forwards executed grounding records instead of model-written URLs',async()=>{
+ env.GEMINI_API_KEY='search-secret';globalThis.fetch=async(url,options)=>{if(String(url).includes('/auth/v1/user'))return Response.json({id:'signed-user'});assert.ok(String(url).includes('generativelanguage.googleapis.com'));const body=JSON.parse(options.body);assert.deepEqual(body.tools,[{googleSearch:{}}]);assert.equal(body.generationConfig.responseMimeType,undefined);return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:'A grounded answer'}]},groundingMetadata:{groundingChunks:[{web:{uri:'https://www.un.org/source',title:'Source'}}]}}]})};
+ const response=await handleAtlasAi(request('search',text));const body=await response.json();assert.equal(body.provider,'gemini');assert.equal(body.grounding[0].web.uri,'https://www.un.org/source');
+});
 test('Edge rejects missing, invalid and anonymous accounts before using any provider key',async()=>{
  let calls=0;globalThis.fetch=async()=>{calls++;return new Response('',{status:401})};assert.equal((await handleAtlasAi(new Request('https://fixture.supabase.co/functions/v1/atlas-ai',{method:'POST'}))).status,401);assert.equal(calls,0);
  assert.equal((await handleAtlasAi(request('text',text))).status,401);assert.equal(calls,1);
@@ -38,7 +49,7 @@ test('Edge preserves short retry delays while sanitizing upstream errors',async(
 });
 
 test('missing Mistral secret cannot fall back to another provider',async()=>{
- delete env.MISTRAL_API_KEY;env.GEMINI_API_KEY='unused-key';let authCalls=0;globalThis.fetch=async url=>{assert.ok(String(url).includes('/auth/v1/user'));authCalls++;return Response.json({id:'signed-user'})};
+ delete env.MISTRAL_API_KEY;delete env.GEMINI_API_KEY;let authCalls=0;globalThis.fetch=async url=>{assert.ok(String(url).includes('/auth/v1/user'));authCalls++;return Response.json({id:'signed-user'})};
  const response=await handleAtlasAi(request('ocr',{messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:image/png;base64,iVBORw0KGgo='}}]}]}));assert.equal(response.status,503);assert.equal((await response.json()).error.code,'ATLAS_EDGE_SETUP');assert.equal(authCalls,1);
 });
 

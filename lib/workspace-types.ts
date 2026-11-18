@@ -16,7 +16,7 @@ export type AiSession={activity?:string;noteId?:string;materialIds?:string[];mat
 export type StudyMaterial={sourceUrl?:string;folderId?:string;originalId?:string;checksum?:string;originalStatus?:'local'|'synced';id:string;name:string;size:number;type:string;text:string;warnings:string[];ai:boolean;createdAt:string};
 
 
-export type PracticeSet={warnings?:string[];partial?:boolean;mode?:'materials'|'general';subjectId?:string;school?:string;readings?:{id:string;name:string;url:string;publisher?:string;fetchedAt:string}[];id:string;kind:'quiz'|'flashcards';title:string;model:string;createdAt:string;materialNames:string[];items:any[];token?:string;answers:(number|null)[];grade?:any;known:string[]};
+export type PracticeSet={generation?:{requested:number;request:any};warnings?:string[];partial?:boolean;mode?:'materials'|'general';subjectId?:string;school?:string;readings?:{id:string;name:string;url:string;publisher?:string;fetchedAt:string}[];id:string;kind:'quiz'|'flashcards';title:string;model:string;createdAt:string;materialNames:string[];items:any[];token?:string;answers:(number|null)[];grade?:any;known:string[]};
 
 
 export type SavedReference={folderId?:string;id:string;title:string;authors:string[];year:number;url:string;doi?:string;venue:string;type:string;oa:boolean;provider:string;fetchedAt:string;savedAt?:string|null;favorite?:boolean;collection?:string;snippet?:string;relevance?:string;sourceName?:string;category?:string;policyVersion?:string};

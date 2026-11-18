@@ -7,6 +7,12 @@ const original=globalThis.fetch,keys=['NEXT_PUBLIC_SUPABASE_URL','NEXT_PUBLIC_SU
 const values=Object.fromEntries(keys.map(k=>[k,process.env[k]]));
 afterEach(()=>{globalThis.fetch=original;for(const [key,value]of Object.entries(values)){if(value===undefined)delete process.env[key];else process.env[key]=value}});
 const configure=()=>{process.env.NEXT_PUBLIC_SUPABASE_URL='https://fixture.supabase.co';process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY='public-fixture';delete process.env.ATLAS_AI_BACKEND;delete process.env.ATLAS_AI_EDGE_FUNCTION};
+
+test('Mistral throttles fall back to Gemini with JSON mode and accurate metadata',async()=>{
+ process.env.ATLAS_AI_BACKEND='direct';process.env.MISTRAL_API_KEY='primary';process.env.GEMINI_API_KEY='secondary';const calls=[];
+ globalThis.fetch=async(url,options)=>{calls.push(String(url));if(calls.length===1)return Response.json({message:'Rate limit exceeded'},{status:429});const body=JSON.parse(options.body);assert.equal(body.generationConfig.responseMimeType,'application/json');assert.equal(options.headers['x-goog-api-key'],'secondary');assert.equal(options.headers.Authorization,undefined);return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:'{"items":[]}'}]}}]})};
+ const response=await providerRequest('text',{messages:[{role:'user',content:'Create a quiz'}],response_format:{type:'json_object'}});const data=await response.json();assert.equal(calls.length,2);assert.equal(data.provider,'gemini');assert.equal(data.model,'gemini-2.5-flash-lite');assert.equal(data.choices[0].message.content,'{"items":[]}');
+});
 test('Supabase configuration routes AI to Edge without provider keys on the app host',async()=>{
  configure();delete process.env.MISTRAL_API_KEY;delete process.env.GEMINI_API_KEY;assert.ok(aiConfigured('text'));assert.ok(aiConfigured('ocr'));
  globalThis.fetch=async(url,options)=>{assert.equal(String(url),'https://fixture.supabase.co/functions/v1/atlas-ai');assert.equal(options.headers.Authorization,'Bearer verified-user-token');assert.equal(options.headers.apikey,'public-fixture');assert.equal(JSON.parse(options.body).mode,'text');assert.ok(!options.body.includes('verified-user-token'));return Response.json({choices:[]})};

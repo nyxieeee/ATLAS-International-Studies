@@ -2,7 +2,7 @@ import {test,afterEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {groqRequest,groqLimit} from '../lib/groq-request.mjs';
 import {relationResearchState} from '../lib/relations-core.mjs';
-const original=globalThis.fetch;afterEach(()=>{globalThis.fetch=original});
+process.env.MISTRAL_API_KEY='fixture';const original=globalThis.fetch;afterEach(()=>{globalThis.fetch=original});
 const limited=(message,seconds)=>Response.json({error:{message,code:'rate_limit_exceeded'}},{status:429,headers:seconds?{'retry-after':seconds}:{}});
 test('TPM throttles retry after the actual provider delay and return the successful response',async()=>{
  let calls=0;const waits=[];globalThis.fetch=async()=>++calls===1?limited('Tokens per minute limit. Please try again in 8.6175s.','9'):Response.json({choices:[{message:{content:'Complete assessment'}}]});

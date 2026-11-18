@@ -8,7 +8,7 @@
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
-    "postinstall": "node scripts/setup-pdf-worker.mjs",
+    "postinstall": "node scripts/setup-assets.mjs",
     "test:browser": "node tests/browser/browser-smoke.mjs",
     "test:ux": "node tests/browser/ux-audit.mjs",
     "manual:pdf": "node scripts/create-user-manual.mjs"
@@ -16,6 +16,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "citation-js": "^0.7.18",
     "d3-geo": "^3.1.1",
     "dompurify": "^3.4.17",
@@ -30,6 +31,7 @@
     "pptxgenjs": "^4.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "tesseract.js": "^7.0.0",
     "topojson-client": "^3.1.0",
     "world-atlas": "^2.0.2",
     "world-countries": "^5.1.0"

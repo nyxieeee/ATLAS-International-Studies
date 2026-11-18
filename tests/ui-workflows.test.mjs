@@ -117,7 +117,7 @@ test('Library summary action starts once under Strict Mode with selected source 
 
 test('general quizzes generate without uploads and preserve reading provenance',async()=>{
  let submitted,sets=[];const reading={id:'reading:asean',name:'ASEAN reading',url:'https://dppa.un.org/en/association-of-southeast-asian-nations',fetchedAt:new Date().toISOString()};
- globalThis.fetch=async(url,options)=>{if(!options)return json({mistral:true});submitted=JSON.parse(options.body);return json({mode:'general',subjectId:submitted.subjectId,school:submitted.school,generatedAt:new Date().toISOString(),items:[{id:'q1',prompt:'Practice question',options:['A','B','C','D']}],token:'protected',materialNames:['ASEAN reading'],readings:[reading],warnings:[]})};
+ globalThis.fetch=async(url,options)=>{if(!options)return json({mistral:true});submitted=JSON.parse(options.body);return json({mode:'general',subjectId:submitted.subjectId,school:submitted.school,generatedAt:new Date().toISOString(),items:Array.from({length:submitted.count},(_,i)=>({id:'q'+(i+1),prompt:'Practice question '+i,options:['A','B','C','D']})),token:'protected',materialNames:['ASEAN reading'],readings:[reading],warnings:[]})};
  await render(Practice,{sets,onChange:fn=>{sets=fn(sets)},materials:[],onMaterialsChange(){},notes:[]});
  await click(button('General IS subjects'));await click(button('ASEAN & regional cooperation'));await click(button('Generate quiz'));
  assert.equal(submitted.mode,'general');assert.equal(submitted.subjectId,'asean');assert.equal(submitted.materials,undefined);assert.equal(sets.length,1);assert.deepEqual(sets[0].readings,[reading]);
@@ -171,11 +171,11 @@ test('sidebar exposes working activity, import, folder and saved project shortcu
  const workspace={projects:[{id:'p1',title:'My maritime project',sources:[]}],folders:[{id:'folder 1',name:'ASEAN readings'}],materials:[],references:[],notes:[]};let destination='',project='';
  await render(Sidebar,{workspace,page:'practice',mobile:false,status:'Saved on this device',onNavigate:target=>destination=target,onProject:id=>project=id});
  await click(button('Recitation'));assert.equal(resolveRoute(destination).task,'recitation');
- await click(host.querySelector('[aria-label="Expand Library"]'));await click(button('Uploaded files'));assert.equal(resolveRoute(destination).libraryTab,'files');
+ await click(button('My materials'));assert.equal(resolveRoute(destination).page,'library');
  await click(button('ASEAN readings'));assert.equal(resolveRoute(destination).folderId,'folder 1');
  await click(button('My maritime project'));assert.equal(project,'p1');
- await click(button('New project'));assert.equal(resolveRoute(destination).newProject,true);
- await click(button('Import documents'));assert.equal(resolveRoute(destination).upload,true);
+ await click(button('Research projects'));assert.equal(resolveRoute(destination).page,'projects');
+ await click(button('Add study material'));assert.equal(resolveRoute(destination).upload,true);
 });
 
 
@@ -208,5 +208,7 @@ test('reviewers render as documents without a chat composer and isolate saved hi
 
 test('practice navigation opens dedicated screens and never mounts the Chat composer',async()=>{
  const noop=()=>{};function Harness(){const [destination,setDestination]=React.useState('practice');const route=resolveRoute(destination);return React.createElement(Hub,{key:destination,sessions:[],onSessions:noop,sets:[],onSets:noop,notes:[],materials:[],onMaterials:noop,onSaveNote:noop,onNavigate:setDestination,initialActivity:route.activity,initialTask:route.task,initialKind:route.kind,outputKind:route.outputKind})}
- await render(Harness,{});for(const [label,heading]of [['Quizzes','Quizzes'],['Flashcards','Flashcards'],['Recitation','Recitation practice'],['Scenarios','Scenario builder'],['Reviewers','Study reviewer']]){await click(button(label));assert.equal(host.querySelector('h1').textContent,heading);assert.equal(host.querySelector('#chat-message'),null)}
+ await render(Harness,{});for(const [label,heading]of [['Quizzes','Quizzes'],['Flashcards','Flashcards'],['Recitation','Recitation practice'],['Scenarios','Scenario builder'],['Reviewers','Study reviewer']]){await act(()=>{const select=host.querySelector('select[aria-label="Study activity"]');select.value=({Quizzes:'quiz',Flashcards:'flashcards',Recitation:'recitation',Scenarios:'scenario',Reviewers:'reviewer'})[label];select.dispatchEvent(new window.Event('change',{bubbles:true}))});assert.equal(host.querySelector('h1').textContent,heading);assert.equal(host.querySelector('#chat-message'),null)}
 });
+
+test('a stopped ten-question quiz saves five and resumes without repeating completed batches',async()=>{let snapshot=[],failed=false,resuming=false;const questions=count=>Array.from({length:count},(_,i)=>({id:'q'+(i+1),prompt:'A source-supported question number '+i+'?',options:['A','B','C','D']}));globalThis.fetch=async(_url,options)=>{const body=JSON.parse(options.body);if(body.action==='combine')return json({items:questions(10),token:'ten'});if(body.offset===5&&!resuming){failed=true;return {ok:false,json:async()=>({error:'Provider paused'})}}return json({items:questions(5).map((item,i)=>({...item,prompt:'Batch '+body.offset+' question '+i+'?'})),token:'five',materialNames:['Reading'],model:'fixture',generatedAt:new Date().toISOString()})};function Harness(){const [sets,onChange]=React.useState([]);snapshot=sets;return React.createElement(Practice,{sets,onChange,materials:[{id:'reading',name:'Reading',text:'Institutions can support cooperation between states.'}],initialMaterialIds:['reading'],onMaterialsChange(){},notes:[]})}await render(Harness,{});const countSelect=[...host.querySelectorAll('label')].find(label=>label.textContent.includes('Number of questions')).querySelector('select');await act(()=>{countSelect.value='10';countSelect.dispatchEvent(new window.Event('change',{bubbles:true}))});await click(button('Generate quiz'));assert.ok(failed);assert.equal(snapshot[0].items.length,5);assert.equal(snapshot[0].generation.request.materials[0].text,undefined);assert.match(host.textContent,/completed questions are saved/i);resuming=true;await click(button('Continue generating'));assert.equal(snapshot[0].items.length,10);assert.equal(snapshot[0].generation,undefined);assert.equal(host.querySelectorAll('.practice-question').length,1);await click(button('Next question'));assert.match(host.querySelector('.practice-question').textContent,/QUESTION 2 OF 10/)});

@@ -11,3 +11,6 @@ tmp/
 
 # Recreated from installed PDF.js by postinstall.
 public/pdfjs/
+
+# Generated local OCR worker, WebAssembly and language data.
+public/ocr/

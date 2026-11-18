@@ -1,0 +1,10 @@
+import {copyFile,mkdir,readdir} from 'node:fs/promises';import {createRequire} from 'node:module';import {pathToFileURL} from 'node:url';
+const require=createRequire(import.meta.url),output=new URL('../public/ocr/',import.meta.url);
+await mkdir(new URL('core/',output),{recursive:true});await mkdir(new URL('lang/',output),{recursive:true});
+await copyFile(require.resolve('tesseract.js/dist/worker.min.js'),new URL('worker.min.js',output));
+await copyFile(require.resolve('tesseract.js/dist/worker.min.js.LICENSE.txt'),new URL('WORKER-LICENSE.txt',output));
+const core=new URL('./',pathToFileURL(require.resolve('tesseract.js-core/package.json')));
+for(const name of await readdir(core))if(/lstm\.wasm(?:\.js)?$/.test(name))await copyFile(new URL(name,core),new URL('core/'+name,output));
+const language=new URL('./',pathToFileURL(require.resolve('@tesseract.js-data/eng/package.json')));
+await copyFile(new URL('4.0.0_best_int/eng.traineddata.gz',language),new URL('lang/eng.traineddata.gz',output));
+await copyFile(new URL('LICENSE',core),new URL('TESSERACT-LICENSE',output));

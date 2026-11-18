@@ -1,0 +1,2 @@
+type OcrWorker={recognize(image:Blob|HTMLCanvasElement|string,options?:any,output?:any):Promise<{data:{text:string;confidence:number}}> ;terminate():Promise<any>};
+export function createLocalOcr(signal?:AbortSignal,progress?:(message:string)=>void,factory?:(progress:(message:string)=>void)=>Promise<OcrWorker>):{recognize(image:Blob|HTMLCanvasElement|string):Promise<{text:string;confidence:number}>;close():void};

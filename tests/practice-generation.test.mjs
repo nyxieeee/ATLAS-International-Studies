@@ -15,6 +15,11 @@ test('small practice sets use smaller input and output budgets',()=>{
  assert.equal(practiceContextBudget(20),19000);
 });
 
+test('passage identifiers attach exact server-owned evidence without copying it through the model',async()=>{
+ process.env.MISTRAL_API_KEY='fixture';globalThis.fetch=async(_url,request)=>{const input=JSON.parse(request.body);assert.match(input.messages[0].content,/evidenceId/);return Response.json({choices:[{finish_reason:'stop',message:{content:'```json\n'+JSON.stringify({items:items.map(({sourceLabel,quote,...item})=>({...item,evidenceId:'D1-E0-0'}))})+'\n```'}}]})};
+ const result=await generateSupportedPractice(options);assert.equal(result[0].quote,quote);assert.equal(result[0].sourceLabel,'D1');
+});
+
 test('provider cooldown is shown when quiz generation is rate limited',async()=>{
  process.env.MISTRAL_API_KEY='fixture';
  globalThis.fetch=async(_url,request)=>{assert.equal(JSON.parse(request.body).max_tokens,1650);return Response.json({error:{code:'rate_limit_exceeded',message:'Tokens per minute limit.'}},{status:429,headers:{'Retry-After':'30'}})};

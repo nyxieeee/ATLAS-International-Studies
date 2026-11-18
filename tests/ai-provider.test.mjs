@@ -15,7 +15,7 @@ test('embedded images use Ministral vision with exact image bytes',async()=>{
 });
 
 test('missing OCR key never sends an image to the text provider',async()=>{
- delete process.env.MISTRAL_API_KEY;process.env.GEMINI_API_KEY='unused';globalThis.fetch=()=>assert.fail('No request should be made');await assert.rejects(generateCompletion(image),e=>e.status===503);
+ delete process.env.MISTRAL_API_KEY;delete process.env.GEMINI_API_KEY;globalThis.fetch=()=>assert.fail('No request should be made');await assert.rejects(generateCompletion(image),e=>e.status===503);
 });
 test('provider failures remain failures, without leaking upstream messages or switching providers',async()=>{
  process.env.MISTRAL_API_KEY='fixture';for(const [status,expected] of [[429,429],[401,503],[403,503],[500,502]]){globalThis.fetch=async()=>Response.json({error:{message:'sensitive upstream detail'}},{status});await assert.rejects(generateCompletion(text),e=>e.status===expected&&!e.message.includes('sensitive'))}

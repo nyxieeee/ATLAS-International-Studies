@@ -1,0 +1,1 @@
+export function generatePracticeBatches(request:any,options?:{signal?:AbortSignal;onBatch?:(batch:any)=>void|Promise<void>;onProgress?:(done:number,total:number)=>void;previous?:any;fetcher?:typeof fetch}):Promise<any>;

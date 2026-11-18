@@ -228,3 +228,13 @@ Text generation and structured evidence assessment now use Mistral `ministral-8b
 ## Ministral OCR and quiz correction (November 18, 2026)
 
 OCR now uses Ministral `ministral-8b-latest` through chat completions with embedded image data and `MISTRAL_API_KEY`, in both direct and Edge modes. Gemini is no longer used for OCR. Quiz correction includes the failed draft and explicit field lengths while retaining exact supporting quote validation. Redeploy the app and updated `atlas-ai` function.
+
+
+## France Notes study workflow adaptation (November 18, 2026)
+
+This supersedes earlier single-provider and importer notes. Mistral text/vision now has optional Gemini recovery in both direct and Edge modes. Gemini grounded search uses executed citation metadata and approved publisher filtering; Groq/direct catalogs provide search recovery. Uploading automatically reads, retains and selects materials, with editable text and account-scoped OCR page caching. Quizzes/flashcards build up to 100 items in five-item batches, save every completed batch, and can resume. Exact evidence is attached by server-owned passage IDs. Audio reviews create two-voice study dialogues. The sidebar has direct grouped study links, the home page has clear study actions, and activity selection uses one control. Deploy the app and function, configure GEMINI_API_KEY alongside MISTRAL_API_KEY, and keep QUIZ_SIGNING_SECRET stable. Existing France Notes credentials and code are unchanged.
+
+
+## Local printed OCR default (November 18, 2026)
+
+Printed English scans and images now use on-device Tesseract.js by default, with locally served worker/core/language assets and one worker reused per import. AI transcription is an explicit mode for handwriting or complex layouts; uncertain local results never trigger an automatic AI call. Cache keys separate local and AI results. Low-confidence pages are identified for review. A generated 15-page, 660-word English benchmark took 19.6 seconds with zero normalized word errors and no AI/external calls; this is not a real-world or handwriting accuracy guarantee. Deploy the app to use this default; it does not require another Edge Function change.

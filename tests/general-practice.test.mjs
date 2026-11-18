@@ -8,7 +8,7 @@ import {validateGenerated,publicQuestions,gradeQuiz} from '../lib/practice-core.
 const request={mode:'general',kind:'quiz',count:5,difficulty:'intermediate',focus:'',school:'feu',subjectId:'asean'};
 test('general practice accepts curriculum subjects without uploaded materials and rejects unknown inputs',()=>{
  assert.equal(validatePracticeRequest(request),null);
- for(const change of [{subjectId:'invented'},{school:'__proto__'},{mode:'url'},{count:99},{materials:[{text:'injected'}]}])assert.ok(validatePracticeRequest({...request,...change}));
+ for(const change of [{subjectId:'invented'},{school:'__proto__'},{mode:'url'},{count:101},{materials:[{text:'injected'}]}])assert.ok(validatePracticeRequest({...request,...change}));
  assert.equal(new Set(IS_SUBJECTS.map(s=>s.id)).size,8);
  for(const subject of IS_SUBJECTS){assert.ok(subject.courses.feu.code);assert.ok(subject.courses.ue.code);for(const id of subject.readings)assert.ok(approvedUrl(IS_READINGS[id].url))}
 });
