@@ -1,7 +1,7 @@
 import {aiConfigured} from '@/lib/ai-transport.mjs';
 import {withAccount} from '@/lib/account-access.mjs';
 import {isSameOriginRequest} from '@/lib/request-origin.mjs';
-import {generateSupportedPractice,PracticeGenerationError} from '@/lib/practice-generation.mjs';
+import {generateSupportedPractice,PracticeGenerationError,practiceContextBudget} from '@/lib/practice-generation.mjs';
 import {AiServiceError} from '@/lib/ai-provider.mjs';
 import {AI_MODEL} from '@/lib/ai-core.mjs';
 import {NextRequest,NextResponse} from 'next/server';
@@ -22,7 +22,7 @@ async function handlePOST(req:NextRequest){
  let materials=body.materials,scope='',readings:any[]=[],warnings:string[]=[];const mode=body.mode==='general'?'general':'materials';
  if(mode==='general'){const result=await loadSubjectReadings(body.subjectId);materials=result.materials;scope=result.subject.title+'. '+result.subject.scope;warnings=result.warnings;readings=materials.map(({text,...source}:any)=>source)}
  if(req.signal.aborted)return NextResponse.json({error:'Request cancelled.'},{status:499});
- const context=buildMaterialContext(materials,scope+' '+body.focus,19000);const excerpts=context.excerpts.map((excerpt:any)=>({...excerpt,url:materials.find((m:any)=>m.id===excerpt.materialId)?.url}));
+ const context=buildMaterialContext(materials,scope+' '+body.focus,practiceContextBudget(body.count));const excerpts=context.excerpts.map((excerpt:any)=>({...excerpt,url:materials.find((m:any)=>m.id===excerpt.materialId)?.url}));
  const items=await generateSupportedPractice({kind:body.kind,count:body.count,difficulty:body.difficulty,scope,focus:body.focus,context,excerpts},AbortSignal.any([req.signal,AbortSignal.timeout(55000)]));
  const common={model:AI_MODEL,generatedAt:new Date().toISOString(),partial:context.partial,mode,subjectId:mode==='general'?body.subjectId:undefined,school:mode==='general'?body.school:undefined,readings,warnings,materialNames:materials.map((m:any)=>m.name)};
  if(body.kind==='flashcards')return NextResponse.json({...common,items},{headers:{'Cache-Control':'no-store'}});return NextResponse.json({...common,items:publicQuestions(items),token:sealQuiz({items,exp:Date.now()+30*86400000},secret())},{headers:{'Cache-Control':'no-store'}});

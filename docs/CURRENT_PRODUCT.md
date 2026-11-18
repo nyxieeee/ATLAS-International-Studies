@@ -218,3 +218,8 @@ This supersedes the OCR provider notes above: images and scanned PDF pages now u
 Library quiz, flashcard, summary, reviewer, presentation and recitation actions now use explicit practice destinations rather than a generic study fallback. Quiz and flashcard builders show only their own saved set types. Practice navigation persists a dedicated activity route.
 
 Summaries, reviewers, slides, scenarios and research guides render as generated documents without a chat response composer. Guided study, recitation and diplomacy/MUN retain interactive turns. Each activity has scoped saved history; AI Chat remains a separate page with chat-only sessions. Existing transcripts and quiz results are preserved. New document sessions store an optional activity label; old summary/slide titles are recognized for continuity. No database migration or AI Edge Function change is required.
+
+
+## Ministral text routing (November 18, 2026)
+
+Text generation and structured evidence assessment now use Mistral `ministral-8b-latest` with server-only `MISTRAL_API_KEY`. Groq GPT-OSS browser search and Gemini OCR retain their separate keys and models. Deploy both the app and updated `atlas-ai` Edge Function, adding the Mistral secret in Supabase. A direct live three-question quiz passed source-quote validation; this does not guarantee capacity for all workloads.
