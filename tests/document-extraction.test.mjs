@@ -24,3 +24,9 @@ test('PDF stops OCR after a limit, retains local text and never stores failure p
  try{let source=await readFile(new URL('../lib/extract-document.ts',import.meta.url),'utf8');source=source.replace("await import('pdfjs-dist')",'globalThis.__pdfFixture');const js=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;const {extractDocument:extract}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));const result=await extract(new File(['fixture'],'scan.pdf'),()=>{},new AbortController().signal);assert.equal(calls,2);assert.equal(cleaned,6);assert.ok(destroyed);assert.equal(result.text,'[Page 6]\nA real selectable passage from page six.');assert.match(result.warnings.join(' '),/5 of 6 pages/);assert.match(result.warnings.join(' '),/OCR paused/);assert.ok(!result.text.includes('No visible'));assert.ok(!result.text.includes('could not be transcribed'));
  }finally{globalThis.fetch=originalFetch;globalThis.document=originalDocument;delete globalThis.__pdfFixture}
 });
+
+test('normal image uploads keep their original bytes without canvas conversion',async()=>{
+ const {imageFile}=await import('../lib/extract-document.ts');const original=globalThis.createImageBitmap;globalThis.createImageBitmap=()=>assert.fail('Small images must not be re-encoded');
+ try{for(const [mime,bytes] of [['image/png',Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==','base64')],['image/jpeg',Buffer.from([255,216,255,224,0,1])]]){const data=await imageFile(new File([bytes],'scan',{type:mime}));assert.equal(data,'data:'+mime+';base64,'+bytes.toString('base64'))}await assert.rejects(imageFile(new File(['not an image'],'scan.png')),/not a supported/)
+ }finally{globalThis.createImageBitmap=original}
+});

@@ -6,7 +6,13 @@ export async function extractImage(image:string,signal?:AbortSignal){
  if(!text||/^(?:there is |there's )?no (?:visible |readable |legible )?text(?: is present| was found| could be| detected| found| to transcribe| in the|\.|$)/i.test(text)||/^\[\s*(?:no (?:visible |readable )?text|blank(?: page| image)?)\s*\][.!]?$/i.test(text))throw Object.assign(Error('No readable text was returned. Review the original page or try a clearer scan.'),{code:'OCR_NO_TEXT'});
  return text;
 }
-async function imageFile(file:File){const bitmap=await createImageBitmap(file);try{const scale=Math.min(1,1800/Math.max(bitmap.width,bitmap.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d');if(!ctx)throw Error('Image processing is unavailable.');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/jpeg',.88)}finally{bitmap.close()}}
+export async function imageFile(file:File){
+ // Preserve original pixels for normal-sized images instead of re-encoding through canvas.
+ const bytes=new Uint8Array(await file.arrayBuffer());
+ const mime=bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71?'image/png':bytes[0]===255&&bytes[1]===216&&bytes[2]===255?'image/jpeg':String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP'?'image/webp':'';
+ if(!mime)throw Error('This file is not a supported PNG, JPEG or WebP image.');
+ if(bytes.length<=4*1024*1024){let binary='';for(let i=0;i<bytes.length;i+=32768)binary+=String.fromCharCode(...bytes.subarray(i,i+32768));return 'data:'+mime+';base64,'+btoa(binary)}
+ const bitmap=await createImageBitmap(file);try{const scale=Math.min(1,1800/Math.max(bitmap.width,bitmap.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d');if(!ctx)throw Error('Image processing is unavailable.');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/jpeg',.88)}finally{bitmap.close()}}
 export async function extractDocument(file:File,progress:(s:string)=>void,signal:AbortSignal):Promise<{text:string;warnings:string[];ai:boolean}>{
  if(file.size>10*1024*1024)throw Error('Choose a document up to 10 MB.');const ext=file.name.split('.').pop()?.toLowerCase();if(signal.aborted)throw new DOMException('Cancelled','AbortError');
  if(['txt','md','csv'].includes(ext||'')){const text=await file.text();if(text.length>200000)throw Error('Text documents must contain at most 200,000 characters.');return {text,warnings:[],ai:false}}

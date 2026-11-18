@@ -32,3 +32,5 @@ If ATLAS says AI setup is incomplete, check that the function exists in the same
 3. Deploy the latest ATLAS app commit and retry extraction with a clear PNG/JPEG/WebP image containing known text. Inspect function logs if it fails.
 
 The old Mistral secret is no longer read by ATLAS. No SQL or database migration is needed. Changing only Vercel does not update the Supabase function.
+
+The latest image fix uses Gemini native `generateContent` with inline image bytes. Replace the full function code again when updating from the earlier compatibility API version. Images up to 4 MB bypass canvas conversion in the app.
