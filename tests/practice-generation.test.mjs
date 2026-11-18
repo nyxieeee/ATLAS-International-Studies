@@ -21,7 +21,7 @@ test('provider cooldown is shown when quiz generation is rate limited',async()=>
  await assert.rejects(generateSupportedPractice(options),e=>e.status===429&&/retry in 30 seconds/.test(e.message));
 });
 test('one correction can repair a malformed quiz without weakening source validation',async()=>{
- process.env.MISTRAL_API_KEY='fixture';let calls=0;globalThis.fetch=async(url,options)=>{calls++;const input=JSON.parse(options.body);if(calls===2)assert.match(input.messages.at(-1).content,/previous draft failed validation/);return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(calls===1?{questions:items}:{items})}}]})};
+ process.env.MISTRAL_API_KEY='fixture';let calls=0;globalThis.fetch=async(url,options)=>{calls++;const input=JSON.parse(options.body);if(calls===2){assert.match(input.messages.at(-1).content,/previous draft failed validation/);assert.equal(input.messages.at(-2).role,'assistant');assert.deepEqual(JSON.parse(input.messages.at(-2).content),{questions:items})}return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify(calls===1?{questions:items}:{items})}}]})};
  assert.equal((await generateSupportedPractice(options)).length,3);assert.equal(calls,2);
 });
 test('persistent unsupported quotes reject the set after two attempts',async()=>{

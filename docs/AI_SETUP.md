@@ -1,12 +1,12 @@
 # ATLAS AI setup
 
-Hosted ATLAS routes AI through the authenticated Supabase `atlas-ai` Edge Function. Store `MISTRAL_API_KEY`, `GROQ_API_KEY` and `GEMINI_API_KEY` in Supabase secrets, then follow [EDGE_AI_SETUP.md](EDGE_AI_SETUP.md) to deploy the function. Saving secrets alone does not deploy it. The app host needs the public Supabase URL and publishable key, not provider keys.
+Hosted ATLAS routes AI through the authenticated Supabase `atlas-ai` Edge Function. Store `MISTRAL_API_KEY` and `GROQ_API_KEY` in Supabase secrets, then follow [EDGE_AI_SETUP.md](EDGE_AI_SETUP.md) to deploy the function. Saving secrets alone does not deploy it. The app host needs the public Supabase URL and publishable key, not provider keys.
 
 For local direct-provider development only, set `ATLAS_AI_BACKEND=direct` and the two provider keys in `.env.local`. Keep all keys private and out of source control.
 
-Text tasks use Groq's `qwen/qwen3.8-27b`: chat, summaries, reviewers, quiz and flashcard generation, practice conversations, source relevance review and interpretation of retrieved relationship passages. Structured tasks request JSON and retain ATLAS's existing source and answer validation.
+Text tasks use Mistral `ministral-8b-latest`: chat, summaries, reviewers, quiz and flashcard generation, practice conversations, source relevance review and interpretation of retrieved relationship passages. Structured tasks request JSON and retain ATLAS's existing source and answer validation.
 
-Image transcription uses Google's `gemini-3.5-flash-lite` through its native generateContent image API. PNG, JPEG and WebP uploads go only to the OCR provider. Extracted text can then be used by the text AI. Neither provider silently substitutes for the other if a key or service fails.
+Image transcription also uses Ministral `ministral-8b-latest` through chat completions with embedded image bytes. Text and OCR share `MISTRAL_API_KEY`. No alternate provider is used if Mistral fails.
 
 Search combines Groq browser search with actual records from approved direct catalogs and feeds. GPT-OSS 120B also uses Groq browser search for grounded discovery. Only executed-tool source records matching approved publishers are accepted; generated answer links cannot create records. Microsoft neural speech remains independent of these AI providers.
 
@@ -24,7 +24,7 @@ Groq requests automatically retry up to twice only for explicitly identified sho
 
 ## Ministral text and assessment routing
 
-Text tasks and structured evidence assessment use Ministral `ministral-8b-latest` with `MISTRAL_API_KEY`. Grounded browser discovery stays on Groq `openai/gpt-oss-120b` with `GROQ_API_KEY`. OCR uses Gemini Flash-Lite. Redeploy the app and `atlas-ai` Edge Function after adding the Mistral secret. Provider account limits still apply.
+Text tasks and structured evidence assessment use Ministral `ministral-8b-latest` with `MISTRAL_API_KEY`. Grounded browser discovery stays on Groq `openai/gpt-oss-120b` with `GROQ_API_KEY`. OCR also uses Ministral with the same Mistral key. Redeploy the app and `atlas-ai` Edge Function after adding the Mistral secret. Provider account limits still apply.
 
 ## Image OCR and scanned PDFs
 

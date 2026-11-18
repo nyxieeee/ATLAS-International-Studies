@@ -223,3 +223,8 @@ Summaries, reviewers, slides, scenarios and research guides render as generated 
 ## Ministral text routing (November 18, 2026)
 
 Text generation and structured evidence assessment now use Mistral `ministral-8b-latest` with server-only `MISTRAL_API_KEY`. Groq GPT-OSS browser search and Gemini OCR retain their separate keys and models. Deploy both the app and updated `atlas-ai` Edge Function, adding the Mistral secret in Supabase. A direct live three-question quiz passed source-quote validation; this does not guarantee capacity for all workloads.
+
+
+## Ministral OCR and quiz correction (November 18, 2026)
+
+OCR now uses Ministral `ministral-8b-latest` through chat completions with embedded image data and `MISTRAL_API_KEY`, in both direct and Edge modes. Gemini is no longer used for OCR. Quiz correction includes the failed draft and explicit field lengths while retaining exact supporting quote validation. Redeploy the app and updated `atlas-ai` function.

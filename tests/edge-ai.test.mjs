@@ -24,8 +24,8 @@ test('Edge pins Ministral, caps tokens and keeps provider keys and reasoning out
 test('Edge search uses GPT-OSS browser search and retains executed citation metadata',async()=>{
  globalThis.fetch=async(url,options)=>{if(String(url).includes('/auth/v1/user'))return Response.json({id:'signed-user'});const body=JSON.parse(options.body);assert.equal(body.model,'openai/gpt-oss-120b');assert.deepEqual(body.tools,[{type:'browser_search'}]);assert.equal(body.response_format,undefined);return answer()};const result=await handleAtlasAi(request('search',{...text,response_format:{type:'json_object'}}));assert.equal((await result.json()).choices[0].message.executed_tools.length,1);
 });
-test('Edge OCR validates embedded bytes and uses only the Gemini secret',async()=>{
- let upstream=0;globalThis.fetch=async(url,options)=>{if(String(url).includes('/auth/v1/user'))return Response.json({id:'signed-user'});upstream++;assert.equal(url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');assert.equal(options.headers['x-goog-api-key'],'ocr-fixture');assert.equal(options.headers.Authorization,undefined);const body=JSON.parse(options.body);assert.equal(body.model,undefined);assert.deepEqual(body.contents[0].parts[0].inlineData,{mimeType:'image/png',data:'iVBORw0KGgo='});assert.equal(body.tools,undefined);assert.equal(body.include_reasoning,undefined);return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:'Visible text'}]}}]})};
+test('Edge OCR validates embedded bytes and uses only the Mistral secret',async()=>{
+ let upstream=0;globalThis.fetch=async(url,options)=>{if(String(url).includes('/auth/v1/user'))return Response.json({id:'signed-user'});upstream++;assert.equal(url,'https://api.mistral.ai/v1/chat/completions');assert.equal(options.headers.Authorization,'Bearer mistral-fixture');const body=JSON.parse(options.body);assert.equal(body.model,'ministral-8b-latest');assert.deepEqual(body.messages[0].content[0].image_url,{url:'data:image/png;base64,iVBORw0KGgo='});assert.equal(body.tools,undefined);assert.equal(body.include_reasoning,undefined);return answer()};
  const make=image=>({messages:[{role:'user',content:[{type:'image_url',image_url:image}]}]});
  assert.equal((await handleAtlasAi(request('ocr',make('https://private.example/image')))).status,400);
  assert.equal((await handleAtlasAi(request('ocr',make('data:image/png;base64,PHNjcmlwdD4=')))).status,400);
@@ -37,12 +37,12 @@ test('Edge preserves short retry delays while sanitizing upstream errors',async(
  const response=await handleAtlasAi(request('text',text));assert.equal(response.status,429);assert.equal(response.headers.get('retry-after'),'9');const body=await response.json();assert.equal(body.error.code,'rate_limit_exceeded');assert.ok(!body.error.message.includes('Sensitive'));
 });
 
-test('missing Gemini secret cannot fall back to Groq or a legacy OCR secret',async()=>{
- delete env.GEMINI_API_KEY;env.MISTRAL_API_KEY='unused-legacy-key';let authCalls=0;globalThis.fetch=async url=>{assert.ok(String(url).includes('/auth/v1/user'));authCalls++;return Response.json({id:'signed-user'})};
+test('missing Mistral secret cannot fall back to another provider',async()=>{
+ delete env.MISTRAL_API_KEY;env.GEMINI_API_KEY='unused-key';let authCalls=0;globalThis.fetch=async url=>{assert.ok(String(url).includes('/auth/v1/user'));authCalls++;return Response.json({id:'signed-user'})};
  const response=await handleAtlasAi(request('ocr',{messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:image/png;base64,iVBORw0KGgo='}}]}]}));assert.equal(response.status,503);assert.equal((await response.json()).error.code,'ATLAS_EDGE_SETUP');assert.equal(authCalls,1);
 });
 
-test('Gemini OCR uses the pinned model with structured image input and propagates provider limits',async()=>{
- globalThis.fetch=async(url,options)=>{if(String(url).includes('/auth/v1/user'))return Response.json({id:'signed-user'});assert.equal(url,'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent');const body=JSON.parse(options.body);assert.equal(body.model,undefined);assert.equal(body.generationConfig.maxOutputTokens,4000);assert.deepEqual(body.contents[0].parts[0].inlineData,{mimeType:'image/png',data:'iVBORw0KGgo='});return Response.json({error:{message:'Private quota details'}},{status:429})};
+test('Ministral OCR uses the pinned model with structured image input and propagates provider limits',async()=>{
+ globalThis.fetch=async(url,options)=>{if(String(url).includes('/auth/v1/user'))return Response.json({id:'signed-user'});assert.equal(url,'https://api.mistral.ai/v1/chat/completions');const body=JSON.parse(options.body);assert.equal(body.model,'ministral-8b-latest');assert.equal(body.max_tokens,4000);assert.deepEqual(body.messages[0].content[0].image_url,{url:'data:image/png;base64,iVBORw0KGgo='});return Response.json({error:{message:'Private quota details'}},{status:429})};
  const response=await handleAtlasAi(request('ocr',{model:'untrusted-model',max_tokens:99999,messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:image/png;base64,iVBORw0KGgo='}}]}]}));assert.equal(response.status,429);assert.ok(!JSON.stringify(await response.json()).includes('Private'));
 });
