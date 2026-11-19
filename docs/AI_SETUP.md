@@ -21,7 +21,7 @@ Text fallback handles unavailable providers and throttles. Authentication and in
 1. In Supabase Edge Function secrets set MISTRAL_API_KEY and GEMINI_API_KEY. GROQ_API_KEY is optional for browser search recovery. These are private server secrets.
 2. Replace and deploy the complete supabase/functions/atlas-ai/index.ts file. Follow [EDGE_AI_SETUP.md](EDGE_AI_SETUP.md) for the gateway JWT setting; the handler verifies registered accounts itself.
 3. Deploy the app. Deploying the app alone does not update Supabase function code or its secrets.
-4. Set a stable QUIZ_SIGNING_SECRET (at least 32 characters) on the app host so saved batches remain gradable across restarts and instances. This is required before generating quizzes. Generate a private local value once with npm run setup:quiz-secret, then configure the same value on every hosted instance. Keep it unchanged across deployments.
+4. QUIZ_SIGNING_SECRET is optional for legacy encrypted answer-key compatibility. Current quiz generation and AI grading work without it. If already configured, retain its value to keep legacy tokens readable.
 
 For local direct mode, set ATLAS_AI_BACKEND=direct and the same provider keys in .env.local. Provider keys are never browser environment variables. Existing France Notes credentials are not copied or changed automatically.
 
@@ -31,7 +31,7 @@ Adding a file reads, saves and selects it. Text PDFs, Word and PowerPoint use lo
 
 PDFs support up to 50 pages. Successful page transcriptions are cached in IndexedDB under the active account, OCR mode and file hash. Reimporting the same PDF reuses completed pages. Failed pages remain identified; they are not represented by generated filler. A limit on one page no longer suppresses every later scan. Cooldowns are bounded and cancellation interrupts waits.
 
-Quizzes and flashcards support 5, 10, 20, 30, 50 or 100 items. Each batch contains at most five. Completed batches are saved immediately, and an interrupted set offers Continue generating. Saved resume metadata references existing materials without duplicating their text. Quizzes keep their answer keys in encrypted server tokens; combining batches does not expose answers. Duplicate prompts are rejected.
+Quizzes and flashcards support 5, 10, 20, 30, 50 or 100 items. Each batch contains at most five. Completed batches are saved immediately, and an interrupted set offers Continue generating. AI grading also runs in five-question batches, saves partial assessments, and resumes after interruption. Saved resume metadata references existing materials without duplicating their text. The study interface assembles public question batches directly and sends the saved questions to AI for assessment. It does not need an encrypted answer-key token to generate, combine, or grade a set. Legacy token-based API operations remain available for older clients. Duplicate prompts are rejected.
 
 Mistral quiz requests use an enforced JSON schema, including an enum of valid evidence IDs. The model selects a supplied passage ID. ATLAS attaches the exact supporting source text itself and validates it. This avoids asking the model to recopy punctuation perfectly while retaining source checks. Selecting a passage is not an independent guarantee that every AI explanation is correct.
 
@@ -55,8 +55,12 @@ The importer renders scanned PDF pages to a 2,600-pixel long edge, then runs loc
 
 Run node tests/browser/local-ocr-smoke.mjs for a self-contained browser benchmark. On the development machine, 15 generated printed-English pages (660 reference words, including three with smaller text, reduced contrast and slight rotation) completed in 19.6 seconds with zero normalized word errors, one worker, zero external requests and zero AI calls. Reimport matched the cached text. This is a synthetic baseline, not a quality estimate for arbitrary PDFs, tables, other languages or handwriting. Full reports are written under artifacts/local-ocr.
 
-## Durable quiz grading keys
+## AI grading and older quizzes
 
-QUIZ_SIGNING_SECRET belongs on the app host, not in Supabase Edge Function secrets. Earlier versions silently generated a process-local fallback key when the setting was absent. Quizzes encrypted by that fallback can fail on another server instance or after a restart even with every question answered. The temporary key cannot be reconstructed once its process is gone. If a known stable key was rotated, restoring that original value can recover its quizzes. Do not clear the workspace or delete selected answers as a troubleshooting step.
+Submit answers sends the actual saved questions/options and relevant source material to the AI in batches of up to five. Student selections are withheld from the model while it identifies the best answer; the server then compares those answers with the student's selections. Scores and explanations are labelled AI assessment, rather than the recovered original answer key.
 
-The API now refuses quiz generation before any AI request when this setting is missing, and distinguishes configuration problems, missing answers, mismatched question counts, expired legacy tokens and unavailable answer keys. New saved self-study tokens have no arbitrary 30-day expiry; their encryption key must still remain stable. Existing opaque tokens stay encrypted. Tests cover 20-question generation, batch combination and grading across separate app instances, plus preservation of completed answers after a key error.
+This works for saved quizzes whose encrypted token is missing, expired, or cannot be decrypted. QUIZ_SIGNING_SECRET is not required for this path. If original material is missing, the assessment is labelled as using general subject knowledge. If supplied readings do not establish an answer, the item is unscored and marked for review; the system does not fabricate a grade to fill the gap.
+
+Each completed grading batch is saved in the workspace. Provider cooldowns are handled with bounded waits, and Pause grading interrupts requests and waits. Submitting again resumes from completed assessments. The account authorization boundary is unchanged.
+
+Earlier releases used a temporary encryption key when no stable quiz secret was configured. That could make the original answer key unreadable after a restart. AI grading reassesses the questions rather than claiming to recover that lost key.

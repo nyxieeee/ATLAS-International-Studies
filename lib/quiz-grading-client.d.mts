@@ -1,0 +1,1 @@
+export function assessQuiz(request:any,options?:{signal?:AbortSignal;previous?:any[];onBatch?:(grade:any)=>void|Promise<void>;onProgress?:(done:number,total:number,cooldown?:number)=>void;fetcher?:typeof fetch;delay?:(ms:number,signal?:AbortSignal)=>Promise<any>}):Promise<any>;

@@ -243,3 +243,8 @@ Printed English scans and images now use on-device Tesseract.js by default, with
 ## Stable quiz grading key (November 19, 2026)
 
 Removed the per-process random fallback for QUIZ_SIGNING_SECRET, which could make a completed quiz ungradable after a server restart or when a different instance handled submission. A persistent private secret of at least 32 characters is now required on the app host before generating quizzes; npm run setup:quiz-secret creates a retained local value without printing it. Error responses distinguish missing answers from setup, expiry and decryption failures. Completed answers are preserved. New self-study answer-key tokens do not have the previous 30-day expiry. Legacy quizzes encrypted with an already-lost temporary key cannot be decrypted by this fix.
+
+
+## AI grading of saved quizzes (November 19, 2026)
+
+This supersedes the stable-key requirement for the main study UI. Submit answers now assesses the actual saved questions through AI in batches of five, using matching materials/notes or general-subject readings where available. Student choices are withheld until the server compares the independently assessed answers. Existing quizzes work even when their old token is unavailable. Generation and client batch assembly no longer depend on a signing secret. Results are labelled AI assessment, uncertain questions are excluded from the score, and completed grading batches are saved for resumption. Legacy encrypted-key endpoints remain for older clients.
