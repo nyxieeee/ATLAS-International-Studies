@@ -21,7 +21,7 @@ Text fallback handles unavailable providers and throttles. Authentication and in
 1. In Supabase Edge Function secrets set MISTRAL_API_KEY and GEMINI_API_KEY. GROQ_API_KEY is optional for browser search recovery. These are private server secrets.
 2. Replace and deploy the complete supabase/functions/atlas-ai/index.ts file. Follow [EDGE_AI_SETUP.md](EDGE_AI_SETUP.md) for the gateway JWT setting; the handler verifies registered accounts itself.
 3. Deploy the app. Deploying the app alone does not update Supabase function code or its secrets.
-4. Set a stable QUIZ_SIGNING_SECRET on the app host so saved batches remain gradable across restarts and instances.
+4. Set a stable QUIZ_SIGNING_SECRET (at least 32 characters) on the app host so saved batches remain gradable across restarts and instances. This is required before generating quizzes. Generate a private local value once with npm run setup:quiz-secret, then configure the same value on every hosted instance. Keep it unchanged across deployments.
 
 For local direct mode, set ATLAS_AI_BACKEND=direct and the same provider keys in .env.local. Provider keys are never browser environment variables. Existing France Notes credentials are not copied or changed automatically.
 
@@ -54,3 +54,9 @@ Tesseract.js is the default for printed English scans. It reuses one Web Worker 
 The importer renders scanned PDF pages to a 2,600-pixel long edge, then runs local OCR. Tesseract confidence below 65 produces a review warning; confidence is not a measured accuracy percentage. For handwriting, select the AI mode explicitly. There is no automatic AI call when local OCR is empty or uncertain.
 
 Run node tests/browser/local-ocr-smoke.mjs for a self-contained browser benchmark. On the development machine, 15 generated printed-English pages (660 reference words, including three with smaller text, reduced contrast and slight rotation) completed in 19.6 seconds with zero normalized word errors, one worker, zero external requests and zero AI calls. Reimport matched the cached text. This is a synthetic baseline, not a quality estimate for arbitrary PDFs, tables, other languages or handwriting. Full reports are written under artifacts/local-ocr.
+
+## Durable quiz grading keys
+
+QUIZ_SIGNING_SECRET belongs on the app host, not in Supabase Edge Function secrets. Earlier versions silently generated a process-local fallback key when the setting was absent. Quizzes encrypted by that fallback can fail on another server instance or after a restart even with every question answered. The temporary key cannot be reconstructed once its process is gone. If a known stable key was rotated, restoring that original value can recover its quizzes. Do not clear the workspace or delete selected answers as a troubleshooting step.
+
+The API now refuses quiz generation before any AI request when this setting is missing, and distinguishes configuration problems, missing answers, mismatched question counts, expired legacy tokens and unavailable answer keys. New saved self-study tokens have no arbitrary 30-day expiry; their encryption key must still remain stable. Existing opaque tokens stay encrypted. Tests cover 20-question generation, batch combination and grading across separate app instances, plus preservation of completed answers after a key error.

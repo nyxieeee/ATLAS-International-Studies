@@ -11,7 +11,8 @@
     "postinstall": "node scripts/setup-assets.mjs",
     "test:browser": "node tests/browser/browser-smoke.mjs",
     "test:ux": "node tests/browser/ux-audit.mjs",
-    "manual:pdf": "node scripts/create-user-manual.mjs"
+    "manual:pdf": "node scripts/create-user-manual.mjs",
+    "setup:quiz-secret": "node scripts/setup-quiz-secret.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

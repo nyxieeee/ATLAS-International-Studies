@@ -238,3 +238,8 @@ This supersedes earlier single-provider and importer notes. Mistral text/vision 
 ## Local printed OCR default (November 18, 2026)
 
 Printed English scans and images now use on-device Tesseract.js by default, with locally served worker/core/language assets and one worker reused per import. AI transcription is an explicit mode for handwriting or complex layouts; uncertain local results never trigger an automatic AI call. Cache keys separate local and AI results. Low-confidence pages are identified for review. A generated 15-page, 660-word English benchmark took 19.6 seconds with zero normalized word errors and no AI/external calls; this is not a real-world or handwriting accuracy guarantee. Deploy the app to use this default; it does not require another Edge Function change.
+
+
+## Stable quiz grading key (November 19, 2026)
+
+Removed the per-process random fallback for QUIZ_SIGNING_SECRET, which could make a completed quiz ungradable after a server restart or when a different instance handled submission. A persistent private secret of at least 32 characters is now required on the app host before generating quizzes; npm run setup:quiz-secret creates a retained local value without printing it. Error responses distinguish missing answers from setup, expiry and decryption failures. Completed answers are preserved. New self-study answer-key tokens do not have the previous 30-day expiry. Legacy quizzes encrypted with an already-lost temporary key cannot be decrypted by this fix.
