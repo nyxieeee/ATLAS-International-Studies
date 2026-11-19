@@ -248,3 +248,8 @@ Removed the per-process random fallback for QUIZ_SIGNING_SECRET, which could mak
 ## AI grading of saved quizzes (November 19, 2026)
 
 This supersedes the stable-key requirement for the main study UI. Submit answers now assesses the actual saved questions through AI in batches of five, using matching materials/notes or general-subject readings where available. Student choices are withheld until the server compares the independently assessed answers. Existing quizzes work even when their old token is unavailable. Generation and client batch assembly no longer depend on a signing secret. Results are labelled AI assessment, uncertain questions are excluded from the score, and completed grading batches are saved for resumption. Legacy encrypted-key endpoints remain for older clients.
+
+
+## Token-only grading compatibility (November 19, 2026)
+
+Already-open legacy clients can submit only token and answers. When decryption or the old quiz-secret setup fails, the server can now retrieve that exact saved quiz from the verified user's workspace and run AI grading, using their JWT and owner-only RLS. Missing local-only snapshots get actionable refresh guidance. This removes the legacy administrator/key message from the grade path without weakening account isolation or changing saved answers.

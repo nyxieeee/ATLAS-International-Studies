@@ -64,3 +64,7 @@ This works for saved quizzes whose encrypted token is missing, expired, or canno
 Each completed grading batch is saved in the workspace. Provider cooldowns are handled with bounded waits, and Pause grading interrupts requests and waits. Submitting again resumes from completed assessments. The account authorization boundary is unchanged.
 
 Earlier releases used a temporary encryption key when no stable quiz secret was configured. That could make the original answer key unreadable after a restart. AI grading reassesses the questions rather than claiming to recover that lost key.
+
+## Already-open browser compatibility
+
+Older browser sessions may still submit only an encrypted token and answers. If that token cannot be opened, the server reads the verified account's own workspace using its existing user JWT and owner-only RLS, finds the saved question set by exact token match, and assesses those saved questions with AI. No service-role key, signing secret or database migration is needed. Notes are converted to plain text in the server runtime. Completed compatibility assessments are cached briefly per account and question/source/answer fingerprint to avoid repeating AI work on a retry. If the quiz was never synced, the response requests a refresh so the current client can send its locally saved questions directly; it does not request regeneration.
