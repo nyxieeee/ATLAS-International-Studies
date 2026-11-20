@@ -13,6 +13,8 @@ npm.cmd run dev
 
 Open http://localhost:3000. For a production build, run `npm.cmd run build` and `npm.cmd start`.
 
+During `npm run dev`, open `/login` and choose **Student demo** or **Researcher demo**. Direct links: http://localhost:3000/dev-demo?profile=student and http://localhost:3000/dev-demo?profile=researcher. No password or Supabase setup is needed for demo workspaces. Each profile has its own browser-only storage and sample reading. Switch or exit demos in Settings. Demo access only works on localhost/loopback in development; it is disabled in production. AI features still need a configured provider and use real tokens.
+
 Copy `.env.example` to `.env.local` and configure Supabase authentication plus AI. Sign-in is required before opening the workspace. Keep server keys private. See [current product and setup](docs/CURRENT_PRODUCT.md).
 
 ## Current workflows
@@ -54,3 +56,5 @@ Live API tests use `ATLAS_TEST_URL`; cloud isolation tests require a configured 
 Browser checks live in `tests/browser`; run the main check with `npm.cmd run test:browser` or the accessibility audit with `npm.cmd run test:ux` against a running app. `scripts/setup-pdf-worker.mjs` is required by installation for PDF imports. `scripts/create-user-manual.mjs` rebuilds the illustrated manual with `npm.cmd run manual:pdf`; the finished PDF is in `output/pdf`. Original reference images are in `docs/design-reference-images`.
 
 Workspace APIs require a verified sign-in. Anonymous requests are rejected. For authenticated endpoint/browser integration checks, provide ATLAS_TEST_AUTH_COOKIE from a disposable test account along with ATLAS_TEST_URL; no guest bypass is built into the app.
+
+Privacy and account deletion setup: see [docs/PRIVACY_AND_DELETION.md](docs/PRIVACY_AND_DELETION.md). Apply schema.sql or migration 005 before deploying the new cleanup, legal receipt and deletion flows. Account deletion additionally requires the server-only SUPABASE_SERVICE_ROLE_KEY. Public legal pages identify NEXT Technology (Philippines), with nextech11579@gmail.com as the contact; the operator must confirm actual retention/processor arrangements before launch.

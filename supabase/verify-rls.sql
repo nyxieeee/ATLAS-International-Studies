@@ -31,3 +31,14 @@ select
 -- Must return the enabled revision guard trigger.
 select tgname, tgenabled from pg_catalog.pg_trigger
  where tgrelid='public.atlas_workspaces'::regclass and not tgisinternal;
+
+-- Privacy migration: all four tables must have both RLS flags enabled.
+select relname,relrowsecurity,relforcerowsecurity from pg_catalog.pg_class
+where oid in ('public.atlas_workspaces'::regclass,'public.atlas_file_deletions'::regclass,
+ 'public.atlas_account_deletions'::regclass,'public.atlas_legal_acceptances'::regclass);
+-- Authenticated users must not create/delete account-erasure locks or forge receipts.
+select has_table_privilege('authenticated','public.atlas_account_deletions','INSERT') as client_can_start_erasure_must_be_false,
+ has_table_privilege('authenticated','public.atlas_legal_acceptances','INSERT') as client_can_forge_receipt_must_be_false,
+ has_function_privilege('authenticated','public.atlas_accept_legal(text)','EXECUTE') as client_can_accept_current_terms;
+select policyname,tablename,permissive,cmd,qual from pg_catalog.pg_policies
+where schemaname='public' and tablename in ('atlas_file_deletions','atlas_legal_acceptances');

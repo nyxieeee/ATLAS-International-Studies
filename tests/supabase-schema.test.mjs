@@ -9,7 +9,7 @@ test('active Supabase SQL executes, reruns, and enforces account/storage isolati
  const a='11111111-1111-4111-8111-111111111111',b='22222222-2222-4222-8222-222222222222';
  try{
   // Supabase-managed objects are represented locally; the application's SQL is unmodified.
-  await db.exec(`create role anon; create role authenticated;
+  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
    create schema auth; create schema storage;
    create table auth.users(id uuid primary key);
    create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
@@ -32,7 +32,7 @@ test('active Supabase SQL executes, reruns, and enforces account/storage isolati
    await db.exec('alter table storage.objects enable row level security');
   });
   await t.test('schema and incremental migrations remain equivalent and rerunnable',async()=>{
-   for(const file of ['001_cloud_workspaces.sql','002_library_files.sql','003_profile_avatars.sql','004_persistence_setup.sql']){const sql=await readFile(new URL('../migrations/'+file,import.meta.url),'utf8');assert.ok(schema.includes(sql));await db.exec(sql)}
+   for(const file of ['001_cloud_workspaces.sql','002_library_files.sql','003_profile_avatars.sql','004_persistence_setup.sql','005_privacy_and_deletion.sql']){const sql=await readFile(new URL('../migrations/'+file,import.meta.url),'utf8');assert.ok(schema.includes(sql));await db.exec(sql)}
    const bucket=(await db.query("select public,file_size_limit from storage.buckets where id='atlas-library-files'")).rows[0];assert.equal(bucket.public,false);assert.equal(Number(bucket.file_size_limit),10485760);
   });
   await t.test('owner snapshots work; another account and anonymous access are denied',async()=>{
@@ -89,6 +89,28 @@ test('active Supabase SQL executes, reruns, and enforces account/storage isolati
    assert.equal((await asUser(a,tx=>tx.query("update storage.objects set name=$1 where bucket_id='atlas-avatars' returning id",[a+'/new.jpg']))).rows.length,0);
    assert.equal((await asUser(b,tx=>tx.query("delete from storage.objects where bucket_id='atlas-avatars' returning id"))).rows.length,0);
    assert.equal((await asUser(a,tx=>tx.query("delete from storage.objects where bucket_id='atlas-avatars' returning id"))).rows.length,1);
+  });
+
+  await t.test('file cleanup is owner scoped, reattached originals are protected, and erasure blocks stale tokens',async()=>{
+   const c='33333333-3333-4333-8333-333333333333',hash='a'.repeat(64);
+   await db.query('insert into auth.users values ($1)',[c]);
+   await asUser(c,tx=>tx.query('insert into public.atlas_workspaces(user_id,data,revision) values ($1,$2,1)',[c,{materials:[{originalId:hash}],notes:[{id:'private',content:'private note'}]}]));
+   await asUser(c,tx=>tx.query("insert into storage.objects(bucket_id,name) values ('atlas-library-files',$1)",[c+'/'+hash]));
+   await asUser(c,tx=>tx.query('update public.atlas_workspaces set data=$1,revision=2 where user_id=$2',[{materials:[],notes:[]},c]));
+   assert.equal((await asUser(c,tx=>tx.query('select original_id from public.atlas_file_deletions'))).rows[0].original_id,hash);
+   assert.equal((await asUser(b,tx=>tx.query('select * from public.atlas_file_deletions'))).rows.length,0);
+   await asUser(c,tx=>tx.query('update public.atlas_workspaces set data=$1,revision=3 where user_id=$2',[{materials:[{originalId:hash}]},c]));
+   assert.equal((await asUser(c,tx=>tx.query('delete from storage.objects where name=$1 returning id',[c+'/'+hash]))).rows.length,0,'delayed deletion cannot remove a reattached file');
+   await asUser(c,tx=>tx.query("select public.atlas_accept_legal('2026-11-20')"));
+   assert.equal((await asUser(c,tx=>tx.query('select * from public.atlas_legal_acceptances'))).rows.length,1);
+   assert.equal((await asUser(b,tx=>tx.query('select * from public.atlas_legal_acceptances'))).rows.length,0);
+   await db.query('insert into public.atlas_account_deletions(user_id) values($1)',[c]);
+   assert.equal((await asUser(c,tx=>tx.query('select * from public.atlas_workspaces'))).rows.length,0);
+   await assert.rejects(asUser(c,tx=>tx.query("insert into storage.objects(bucket_id,name) values('atlas-library-files',$1)",[c+'/blocked'])),/row-level security/);
+   await assert.rejects(asUser(c,tx=>tx.query("select public.atlas_accept_legal('2026-11-20')")),/Active account/);
+   await db.query('delete from auth.users where id=$1',[c]);
+   for(const table of ['atlas_workspaces','atlas_file_deletions','atlas_legal_acceptances','atlas_account_deletions'])assert.equal((await db.query('select * from public.'+table+' where user_id=$1',[c])).rows.length,0);
+   await assert.rejects(asUser(c,tx=>tx.query("insert into storage.objects(bucket_id,name) values('atlas-avatars',$1)",[c+'/stale.jpg'])),/row-level security/);
   });
  }finally{await db.close()}
 });

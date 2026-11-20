@@ -1,0 +1,7 @@
+﻿import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {cleanupRemovedOriginals} from '../lib/file-cleanup.mjs';
+function fixture(retained=false,fail=false){const calls=[];return {calls,storage:{from(){return {remove:async paths=>{calls.push(['remove',...paths]);return {error:fail?Error('offline'):null}}}}},from(table){let deleting=false;const q={select(){return q},delete(){deleting=true;return q},eq(k,v){calls.push([table,k,v]);return q},limit:async()=>({data:[{original_id:'hash'}]}),maybeSingle:async()=>({data:{data:{materials:retained?[{originalId:'hash'}]:[]}}}),then(resolve){return Promise.resolve({error:null}).then(result=>{if(deleting)calls.push(['ack']);return resolve(result)})}};return q}}}
+test('removed originals are deleted under the owner prefix and acknowledged after success',async()=>{const c=fixture();let local;await cleanupRemovedOriginals(c,'owner',async(scope,id)=>local=[scope,id]);assert.deepEqual(c.calls.find(x=>x[0]==='remove'),['remove','owner/hash']);assert.deepEqual(local,['atlas-account-owner','hash']);assert.ok(c.calls.some(x=>x[0]==='ack'))});
+test('storage errors leave the durable deletion request pending',async()=>{const c=fixture(false,true);await assert.rejects(cleanupRemovedOriginals(c,'owner'),/pending/);assert.ok(!c.calls.some(x=>x[0]==='ack'))});
+test('reattached originals are not removed by delayed cleanup',async()=>{const c=fixture(true);await cleanupRemovedOriginals(c,'owner');assert.ok(!c.calls.some(x=>x[0]==='remove'))});

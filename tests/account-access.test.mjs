@@ -27,7 +27,8 @@ test('Supabase anonymous accounts cannot replace actual signup or login',async()
  configure();const result=await verifyAccount(new Request('https://atlas.example/api/ai'),()=>({auth:{getUser:async()=>({data:{user:{id:'anonymous-account',is_anonymous:true}}})}}));assert.equal(result.status,401);assert.equal(result.user,null);
 });
 test('every app API entry point enforces account authorization',async()=>{
- for(const dir of await readdir(new URL('../app/api/',import.meta.url))){const source=await readFile(new URL('../app/api/'+dir+'/route.ts',import.meta.url),'utf8');assert.ok(!/export async function (GET|POST)/.test(source),dir+' has an unguarded handler');for(const method of source.matchAll(/async function handle(GET|POST)/g))assert.ok(source.includes('export const '+method[1]+'=withAccount(handle'+method[1]+')'),dir+' '+method[1]+' must be protected')}
+ for(const file of await readdir(new URL('../app/api/',import.meta.url),{recursive:true})){const route=file.replaceAll('\\','/');if(!route.endsWith('/route.ts'))continue;const source=await readFile(new URL('../app/api/'+route,import.meta.url),'utf8');assert.ok(!/export async function (GET|POST|DELETE)/.test(source),route+' has an unguarded handler');if(route==='account/delete/route.ts'){assert.match(source,/export const DELETE=accountDeleteHandler/);assert.match(source,/verify:verifyAccount/);assert.match(source,/sameOrigin:isSameOriginRequest/);}else for(const method of source.matchAll(/async function handle(GET|POST|DELETE)/g))assert.ok(source.includes('export const '+method[1]+'=withAccount(handle'+method[1]+')'),route+' '+method[1]+' must be protected')}
+
 });
 test('actual Supabase browser cookies are readable by the server and cached users are not trusted',async()=>{
  configure();const original=globalThis.fetch,dom=new JSDOM('',{url:'https://atlas.example'});

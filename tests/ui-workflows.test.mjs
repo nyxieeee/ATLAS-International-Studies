@@ -216,3 +216,30 @@ test('a stopped ten-question quiz saves five and resumes without repeating compl
 test('an AI grading outage keeps all 20 completed answers and the saved quiz',async()=>{let snapshot;const items=Array.from({length:20},(_,i)=>({id:'q'+(i+1),prompt:'Question number '+(i+1)+' about institutions?',options:['A','B','C','D']}));globalThis.fetch=async(_url,options)=>{const body=JSON.parse(options.body);assert.equal(body.action,'grade-ai');assert.deepEqual(body.answers,Array(5).fill(0));return {ok:false,json:async()=>({error:'The AI provider is temporarily unavailable. Your answers are saved.'})}};function Harness(){const [sets,onChange]=React.useState([{id:'completed',kind:'quiz',title:'Completed reading quiz',model:'fixture',createdAt:new Date().toISOString(),materialNames:['Reading'],items,answers:Array(20).fill(0),known:[],token:'legacy-token'}]);snapshot=sets;return React.createElement(Practice,{sets,onChange,materials:[],onMaterialsChange(){},notes:[]})}await render(Harness,{});await click(button('Completed reading quiz'));await click(button('Submit answers'));assert.match(host.textContent,/20 \/ 20 answered/);assert.match(host.querySelector('[role=alert]').textContent,/AI provider is temporarily unavailable/);assert.deepEqual(snapshot[0].answers,Array(20).fill(0));assert.equal(snapshot[0].token,'legacy-token');assert.equal(snapshot[0].grade,undefined)});
 
 test('a legacy 20-question quiz is AI graded without opening its old token',async()=>{let snapshot,calls=0;const items=Array.from({length:20},(_,i)=>({id:'q'+(i+1),prompt:'Question number '+(i+1)+' about institutions?',options:['Cooperation','Isolation','Conflict','None']}));globalThis.fetch=async(_url,options)=>{calls++;const body=JSON.parse(options.body);assert.equal(body.action,'grade-ai');assert.equal(body.token,undefined);assert.equal(body.questions.length,5);return json({method:'ai',model:'fixture',results:body.questions.map((q,i)=>({id:q.id,selectedIndex:body.answers[i],answerIndex:0,correct:body.answers[i]===0,explanation:'The reading supports cooperation.',basis:'general-knowledge',quote:''}))})};function Harness(){const [sets,onChange]=React.useState([{id:'legacy',kind:'quiz',title:'Legacy completed quiz',model:'fixture',createdAt:new Date().toISOString(),materialNames:['Deleted reading'],items,answers:items.map((_,i)=>i%2),known:[],token:'unrecoverable-token'}]);snapshot=sets;return React.createElement(Practice,{sets,onChange,materials:[],onMaterialsChange(){},notes:[]})}await render(Harness,{});await click(button('Legacy completed quiz'));await click(button('Submit answers'));assert.equal(calls,4);assert.equal(snapshot[0].grade.method,'ai');assert.equal(snapshot[0].grade.correct,10);assert.equal(snapshot[0].grade.assessed,20);assert.equal(snapshot[0].answers.length,20);assert.match(host.textContent,/AI assessment/);assert.match(host.textContent,/10 \/ 20 correct/)});
+
+
+test('conversation history renames and deletes individual chats without changing other sessions',async()=>{
+ const proto=dom.window.HTMLDialogElement.prototype,oldShow=proto.showModal,oldClose=proto.close;
+ proto.showModal=function(){this.setAttribute('open','')};proto.close=function(){this.removeAttribute('open')};
+ let snapshot;
+ const seed=[{id:'first',task:'chat',title:'First chat',messages:[{role:'user',content:'First message'}],updatedAt:'2026-01-01'}, {id:'second',task:'chat',title:'Second chat',messages:[{role:'user',content:'Second message'}],updatedAt:'2026-01-01'},{id:'study',task:'tutor',title:'Study session',messages:[],updatedAt:'2026-01-01'}];
+ function Harness(){const [sessions,onChange]=React.useState(seed);snapshot=sessions;return React.createElement(Chat,{sessions,onChange,materials:[],onMaterialsChange(){},notes:[],onSaveNote(){},onSearch(){}})}
+ try{
+  await render(Harness,{});
+  await click(host.querySelector('[aria-label="Rename conversation: First chat"]'));
+  const input=host.querySelector('[aria-label="Conversation name"]');
+  await act(()=>{Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value').set.call(input,'  Seminar ideas  ');input.dispatchEvent(new window.Event('input',{bubbles:true}))});
+  await click(host.querySelector('[aria-label="Save conversation name"]'));
+  assert.equal(snapshot[0].title,'Seminar ideas');assert.deepEqual(snapshot[0].messages,seed[0].messages);
+  await click(Array.from(host.querySelectorAll('.chat-thread-open')).find(b=>b.textContent.includes('Seminar ideas')));
+  await click(host.querySelector('[aria-label="Delete conversation: Second chat"]'));
+  await click(Array.from(document.querySelectorAll('dialog button')).find(b=>b.textContent==='Cancel'));
+  assert.equal(snapshot.length,3);
+  await click(host.querySelector('[aria-label="Delete conversation: Second chat"]'));
+  await click(Array.from(document.querySelectorAll('dialog button')).find(b=>b.textContent==='Continue'));
+  assert.deepEqual(snapshot.map(s=>s.id),['first','study']);assert.equal(host.querySelector('[aria-label="Conversation title"]').value,'Seminar ideas');
+  await click(host.querySelector('[aria-label="Delete conversation: Seminar ideas"]'));
+  await click(Array.from(document.querySelectorAll('dialog button')).find(b=>b.textContent==='Continue'));
+  assert.deepEqual(snapshot.map(s=>s.id),['study']);assert.equal(host.querySelector('[aria-label="Conversation title"]'),null);
+ }finally{proto.showModal=oldShow;proto.close=oldClose}
+});

@@ -1,0 +1,11 @@
+﻿'use client';
+import {useEffect,useState} from 'react';
+import {getCloudClient} from '@/lib/cloud';
+const version='2026-11-20';
+export default function LegalAgreement(){
+ const [required,setRequired]=useState(false),[agreed,setAgreed]=useState(false),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ useEffect(()=>{let live=true;const client=getCloudClient();if(client)void client.auth.getUser().then(async({data})=>{if(!data.user)return;const receipt=await client.from('atlas_legal_acceptances').select('version').eq('user_id',data.user.id).eq('version',version).maybeSingle();if(live){setRequired(!receipt.data);if(receipt.error)setError('Agreement records could not be loaded. Apply the latest database migration and retry.')}});return()=>{live=false}},[]);
+ async function accept(){if(!agreed||busy)return;setBusy(true);setError('');try{const client=getCloudClient();if(!client)throw Error('Sign in to record your agreement.');const result=await client.rpc('atlas_accept_legal',{document_version:version});if(result.error)throw Error('Your agreement could not be saved. Check your connection and retry.');setRequired(false)}catch(e:any){setError(e.message)}finally{setBusy(false)}}
+ if(!required)return null;
+ return <section className="panel legal-agreement-panel" aria-labelledby="legal-agreement-title"><h2 id="legal-agreement-title">Review ATLAS policies</h2><p>ATLAS is operated by NEXT Technology in the Philippines. Please review version {version} before continuing.</p><label className="auth-agreement"><input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)} disabled={busy}/><span>I agree to the <a href="/terms" target="_blank" rel="noreferrer">Terms of Use</a>, <a href="/eula" target="_blank" rel="noreferrer">EULA</a> and <a href="/acceptable-use" target="_blank" rel="noreferrer">Acceptable Use Policy</a>, and acknowledge the <a href="/privacy" target="_blank" rel="noreferrer">Privacy Policy</a>. This is not consent to unrelated marketing.</span></label>{error&&<p role="alert" className="error">{error}</p>}<div className="toolbar"><button className="primary" disabled={!agreed||busy} onClick={()=>void accept()}>{busy?'Saving agreement…':'Agree and save'}</button><a href="/data-rights">Your data rights</a><a href="/account/delete">Delete my account</a></div></section>;
+}

@@ -1,8 +1,9 @@
-﻿import {type SupabaseClient} from '@supabase/supabase-js';
+﻿import {browserDemo} from './dev-demo.mjs';
+import {type SupabaseClient} from '@supabase/supabase-js';
 import {createBrowserClient} from '@supabase/ssr';
 let client:SupabaseClient|null=null;
 export function getCloudClient(){
- if(typeof window==='undefined')return null;
+ if(typeof window==='undefined'||browserDemo())return null;
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL;
  const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
  if(!url||!key)return null;
